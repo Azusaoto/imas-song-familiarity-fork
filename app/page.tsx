@@ -198,7 +198,7 @@ export default function SongFamiliarityHub() {
       const res = await fetch('/api/auth/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username: usernameInput, password: passwordInput }),
+        body: JSON.stringify({ username: usernameInput, password: passwordInput, nickname: nicknameInput }),
       });
 
       const data = await res.json();
@@ -216,6 +216,7 @@ export default function SongFamiliarityHub() {
           setShowRegisterModal(false);
           setUsernameInput('');
           setPasswordInput('');
+          setNicknameInput('');
           setAuthMessage('');
         }, 1500);
       }
@@ -538,6 +539,16 @@ export default function SongFamiliarityHub() {
                   minLength={3}
                   value={usernameInput}
                   onChange={(e) => setUsernameInput(e.target.value)}
+                />
+              </div>
+              <div className="form-group">
+                <label>暱稱 (Nickname)</label>
+                <input
+                  type="text"
+                  className="form-input"
+                  required
+                  value={nicknameInput}
+                  onChange={(e) => setNicknameInput(e.target.value)}
                 />
               </div>
               <div className="form-group">
