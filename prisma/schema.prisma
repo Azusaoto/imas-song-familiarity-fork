@@ -1,0 +1,60 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model User {
+  id         String          @id @default(uuid())
+  username   String          @unique
+  password   String
+  isPublic   Boolean         @default(false)
+  createdAt  DateTime        @default(now())
+  updatedAt  DateTime        @updatedAt
+  selections UserSelection[]
+}
+
+model Song {
+  id         String          @id @default(uuid())
+  slug       String          @unique // brand/id，例如 "ml/12087"
+  title      String
+  brand      String
+  musicType  String
+  lyrics     String?
+  composer   String?
+  arranger   String?
+  members    SongMember[]
+  selections UserSelection[]
+
+  @@index([brand])
+}
+
+model Member {
+  id     String       @id @default(uuid())
+  name   String       @unique
+  cvName String?
+  songs  SongMember[]
+}
+
+model SongMember {
+  songId   String
+  memberId String
+  song     Song   @relation(fields: [songId], references: [id], onDelete: Cascade)
+  member   Member @relation(fields: [memberId], references: [id], onDelete: Cascade)
+
+  @@id([songId, memberId])
+}
+
+model UserSelection {
+  userId      String
+  songId      String
+  familiarity Int      // 1=會唱, 2=常聽/只聽, 3=有聽過, 4=不太記得
+  updatedAt   DateTime @default(now()) @updatedAt
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  song        Song     @relation(fields: [songId], references: [id], onDelete: Cascade)
+
+  @@id([userId, songId])
+}
