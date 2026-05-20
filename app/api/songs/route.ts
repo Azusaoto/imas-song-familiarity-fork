@@ -44,13 +44,14 @@ export async function GET() {
       })),
     }));
 
-    // 設定快取控制 — 縮短為 60s 以免 schema 變動時客戶端拿到過期 shape
-    // 加上 v2 標籤幫助舊客戶端跳過已 cache 的舊版回應
+    // schema 仍在迭代（members[].id、units 等都是後加的），任何 max-age 都可能讓
+    // 已升級的前端拿到 cache 住的舊 shape，結果就是篩選全部過濾掉變 0 筆。
+    // 改成 no-store：每次都從 DB 直出，避免任何中間層 cache 卡到。
     return new NextResponse(JSON.stringify(formattedSongs), {
       status: 200,
       headers: {
         'Content-Type': 'application/json',
-        'Cache-Control': 'public, max-age=60, stale-while-revalidate=30',
+        'Cache-Control': 'no-store',
         'X-Songs-Schema': 'v2-with-units',
       },
     });

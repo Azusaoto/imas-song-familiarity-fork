@@ -7,6 +7,8 @@ import MultiSelect, { MultiSelectOption } from '@/components/MultiSelect';
 import { buildThemeVars, getBrandColor, getBrandDisplayName, getAccentTextColor } from '@/lib/themeUtils';
 import { BrandIcon } from '@/components/BrandIcon';
 import { brandToProduction, shouldFilterByProduction } from '@/lib/brandMap';
+import { filterSongs } from '@/lib/filterSongs';
+import BackToTop from '@/components/BackToTop';
 
 interface Song {
   id: string;
@@ -116,7 +118,16 @@ export default function SongFamiliarityHub() {
   const [selectedTypes, setSelectedTypes] = useState<string[]>([]);
   const [selectedIdols, setSelectedIdols] = useState<string[]>([]);
   const [selectedUnits, setSelectedUnits] = useState<string[]>([]);
+  // 下排：依「我自己標的熟悉度」過濾。值為 0|1|2|3|4(OR)；空陣列 = 不限。
+  // 0 在資料模型上等同未評(state 0 不存 DB)，所以「不記得 / 未評」是同一桶。
+  const [selectedFamiliarities, setSelectedFamiliarities] = useState<number[]>([]);
   const [showPitchModal, setShowPitchModal] = useState(false);
+  // 熟悉度定義說明卡 — 手機預設收起，桌面預設展開
+  const [defsOpen, setDefsOpen] = useState(true);
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    if (window.matchMedia('(max-width: 600px)').matches) setDefsOpen(false);
+  }, []);
 
   // 偶像 / 組合 全列表（一次載入後 client-side 過濾）
   const [allIdols, setAllIdols] = useState<Idol[]>([]);
@@ -147,7 +158,7 @@ export default function SongFamiliarityHub() {
   useEffect(() => {
     fetch('/api/colors')
       .then(res => res.json())
-      .then(data => setIdolColors(data))
+      .then(data => { if (Array.isArray(data)) setIdolColors(data); })
       .catch(() => {});
   }, []);
 
@@ -155,9 +166,6 @@ export default function SongFamiliarityHub() {
   const [authMessage, setAuthMessage] = useState('');
   const [settingsError, setSettingsError] = useState('');
   const [settingsSuccess, setSettingsSuccess] = useState('');
-
-  // 計時器參照
-  const autoSaveIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   // 1. 載入歌曲清單與初始化選取狀態
   useEffect(() => {
@@ -331,17 +339,13 @@ export default function SongFamiliarityHub() {
     }
   }, [status]);
 
-  // 3. 自動儲存機制：每 60 秒檢查一次是否有未儲存的變更
+  // 3. 自動儲存：每次有未儲存變更後 500ms 觸發；快速連點會被 debounce 合併
   useEffect(() => {
-    autoSaveIntervalRef.current = setInterval(() => {
+    if (Object.keys(unsavedChanges).length === 0) return;
+    const t = setTimeout(() => {
       triggerSave(true);
-    }, 60000); // 60 秒
-
-    return () => {
-      if (autoSaveIntervalRef.current) {
-        clearInterval(autoSaveIntervalRef.current);
-      }
-    };
+    }, 500);
+    return () => clearTimeout(t);
   }, [unsavedChanges, selections, status]);
 
   // 4. 執行儲存變更 (雙軌機制)
@@ -510,62 +514,27 @@ export default function SongFamiliarityHub() {
   // - filter 之間 = AND（要全部 pass 才算）
   // - 任何 filter 是空陣列 = 不限制（顯示全部）
   // - 關鍵字搜尋為全域：有 query 時自動忽略 brand 篩選
-  const hasQuery = searchQuery.trim() !== '';
-  const selectedIdolSet = useMemo(() => new Set(selectedIdols), [selectedIdols]);
-  const selectedUnitSet = useMemo(() => new Set(selectedUnits), [selectedUnits]);
-  const selectedBrandSet = useMemo(() => new Set(selectedBrands), [selectedBrands]);
-
-  const filteredSongs = useMemo(() => songs.filter((song) => {
-    // Brand：任一匹配（hasQuery 時鬆綁）
-    if (!hasQuery && selectedBrandSet.size > 0 && !selectedBrandSet.has(song.brand)) {
-      return false;
-    }
-
-    // MusicType：任一 type substring 命中即可
-    if (selectedTypes.length > 0) {
-      const typeStr = song.musicType.toLowerCase();
-      const ok = selectedTypes.some((t) => typeStr.includes(t));
-      if (!ok) return false;
-    }
-
-    // 偶像：任一被選的偶像有出現在 song.members
-    if (selectedIdolSet.size > 0) {
-      const ok = (song.members ?? []).some(
-        (m) => m.id && selectedIdolSet.has(m.id),
-      );
-      if (!ok) return false;
-    }
-
-    // 組合：任一被選的組合有出現在 song.units
-    if (selectedUnitSet.size > 0) {
-      const ok = (song.units ?? []).some((u) => selectedUnitSet.has(u.id));
-      if (!ok) return false;
-    }
-
-    // 關鍵字搜尋：歌名、成員、CV、組合名
-    if (hasQuery) {
-      const query = searchQuery.toLowerCase();
-      const matchTitle = song.title.toLowerCase().includes(query);
-      const matchMember = (song.members ?? []).some(
-        (m) =>
-          m.name.toLowerCase().includes(query) ||
-          (m.cvName && m.cvName.toLowerCase().includes(query)),
-      );
-      const matchUnit = (song.units ?? []).some((u) =>
-        u.name.toLowerCase().includes(query),
-      );
-      if (!matchTitle && !matchMember && !matchUnit) return false;
-    }
-
-    return true;
-  }), [
+  const filteredSongs = useMemo(() => {
+    const upstream = filterSongs(songs, {
+      searchQuery,
+      selectedBrands,
+      selectedTypes,
+      selectedIdols,
+      selectedUnits,
+    });
+    if (selectedFamiliarities.length === 0) return upstream;
+    const famSet = new Set(selectedFamiliarities);
+    // 未評的 song 在 selections 裡查不到 → 視為 0(不記得 / 未評)
+    return upstream.filter((s) => famSet.has(selections[s.id] ?? 0));
+  }, [
     songs,
-    hasQuery,
     searchQuery,
-    selectedBrandSet,
+    selectedBrands,
     selectedTypes,
-    selectedIdolSet,
-    selectedUnitSet,
+    selectedIdols,
+    selectedUnits,
+    selectedFamiliarities,
+    selections,
   ]);
 
   // 漸進式載入：每次只渲染 PAGE_SIZE 首，滾動到底再加下一頁。
@@ -580,6 +549,7 @@ export default function SongFamiliarityHub() {
     selectedTypes,
     selectedIdols,
     selectedUnits,
+    selectedFamiliarities,
   ]);
 
   const visibleSongs = useMemo(
@@ -611,14 +581,16 @@ export default function SongFamiliarityHub() {
     setSelectedTypes([]);
     setSelectedIdols([]);
     setSelectedUnits([]);
+    setSelectedFamiliarities([]);
   }
 
   const anyFilterActive =
-    hasQuery ||
+    searchQuery.trim() !== '' ||
     selectedBrands.length > 0 ||
     selectedTypes.length > 0 ||
     selectedIdols.length > 0 ||
-    selectedUnits.length > 0;
+    selectedUnits.length > 0 ||
+    selectedFamiliarities.length > 0;
 
   // 動態設定主題色（含所有衍生色）
   const currentThemeColor = session?.user?.themeColor || '#92cfbb';
@@ -632,16 +604,20 @@ export default function SongFamiliarityHub() {
     }}>
       <header>
         <div className="container header-content">
-          <h1>IMAS Song Familiarity Hub</h1>
+          <div className="header-title-row">
+            <h1>IMAS Song Familiarity Hub</h1>
+            {status === 'authenticated' && session?.user && (
+              <span className="header-greeting">
+                Hi, <strong>{session.user.nickname || session.user.username}</strong>
+              </span>
+            )}
+          </div>
           <div className="auth-nav">
             <button onClick={() => setShowPitchModal(true)} className="btn btn-secondary" style={{ padding: '6px 12px', fontSize: '12px' }}>
               音域對照表
             </button>
             {status === 'authenticated' && session?.user ? (
               <>
-                <span style={{ fontSize: '14px', color: 'var(--text-secondary)' }}>
-                  Hi, <strong>{session.user.nickname || session.user.username}</strong>
-                </span>
                 <button onClick={openSettings} className="btn btn-secondary" style={{ padding: '6px 12px', fontSize: '12px' }}>
                   個人設定
                 </button>
@@ -737,16 +713,72 @@ export default function SongFamiliarityHub() {
           />
         </section>
 
-        {/* 熟悉度定義說明 */}
-        <div className="familiarity-definitions-card">
-          <h3 className="definitions-title">💡 熟悉度定義說明</h3>
-          <div className="definitions-grid">
-            <div className="def-item"><span className="def-badge state-1">會唱</span>有詞的狀況下可以一起唱</div>
-            <div className="def-item"><span className="def-badge state-2">常聽</span>熟悉到會唱，但有些地方會 miss，或者常常聽但沒有想唱</div>
-            <div className="def-item"><span className="def-badge state-3">有聽過</span>看到歌名或聽到前奏能想得起一點旋律 & 可以哼</div>
-            <div className="def-item"><span className="def-badge state-4">不太記得</span>確定有聽過，但不記得內容</div>
-            <div className="def-item"><span className="def-badge state-0">不記得</span>連歌名都不記得，或者確定沒聽過</div>
-          </div>
+        {/* 第二排篩選：依「我自己標的熟悉度」過濾(OR within；和上排 AND) */}
+        <section
+          className="familiarity-filter-panel"
+          data-testid="familiarity-filter"
+        >
+          <span className="familiarity-filter-label">依熟悉度：</span>
+          {[
+            { v: 1, label: '會唱' },
+            { v: 2, label: '常聽' },
+            { v: 3, label: '有聽過' },
+            { v: 4, label: '不太記得' },
+            { v: 0, label: '不記得' },
+          ].map(({ v, label }) => {
+            const active = selectedFamiliarities.includes(v);
+            return (
+              <button
+                key={v}
+                type="button"
+                className={`familiarity-btn state-${v} ${active ? 'active' : ''}`}
+                data-testid={`fam-filter-${v}`}
+                aria-pressed={active}
+                onClick={() =>
+                  setSelectedFamiliarities((prev) =>
+                    prev.includes(v)
+                      ? prev.filter((x) => x !== v)
+                      : [...prev, v],
+                  )
+                }
+              >
+                {label}
+              </button>
+            );
+          })}
+          {selectedFamiliarities.length > 0 && (
+            <button
+              type="button"
+              className="btn btn-secondary familiarity-filter-clear"
+              onClick={() => setSelectedFamiliarities([])}
+              data-testid="fam-filter-clear"
+            >
+              清除
+            </button>
+          )}
+        </section>
+
+        {/* 熟悉度定義說明 — 手機收起，可點開 */}
+        <div className={`familiarity-definitions-card ${defsOpen ? 'is-open' : 'is-closed'}`}>
+          <button
+            type="button"
+            className="definitions-title"
+            aria-expanded={defsOpen}
+            onClick={() => setDefsOpen((o) => !o)}
+            data-testid="defs-toggle"
+          >
+            <span>💡 熟悉度定義說明</span>
+            <span className="defs-chevron">{defsOpen ? '−' : '+'}</span>
+          </button>
+          {defsOpen && (
+            <div className="definitions-grid">
+              <div className="def-item"><span className="def-badge state-1">會唱</span>有詞的狀況下可以一起唱</div>
+              <div className="def-item"><span className="def-badge state-2">常聽</span>熟悉到會唱，但有些地方會 miss，或者常常聽但沒有想唱</div>
+              <div className="def-item"><span className="def-badge state-3">有聽過</span>看到歌名或聽到前奏能想得起一點旋律 & 可以哼</div>
+              <div className="def-item"><span className="def-badge state-4">不太記得</span>確定有聽過，但不記得內容</div>
+              <div className="def-item"><span className="def-badge state-0">不記得</span>連歌名都不記得，或者確定沒聽過</div>
+            </div>
+          )}
         </div>
 
         {/* 歌曲評估清單 */}
@@ -913,13 +945,7 @@ export default function SongFamiliarityHub() {
         )}
       </main>
 
-      {/* 右下角懸浮儲存按鈕 */}
-      {Object.keys(unsavedChanges).length > 0 && (
-        <button className="floating-save-btn" onClick={() => triggerSave(false)}>
-          儲存變更
-          <span className="badge">{Object.keys(unsavedChanges).length}</span>
-        </button>
-      )}
+      <BackToTop />
 
       {/* 登入彈出視窗 */}
       {showLoginModal && (

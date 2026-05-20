@@ -64,7 +64,9 @@ html, body {
   color: var(--text-primary);
   font-family: var(--font-sans);
   min-height: 100vh;
-  overflow-x: hidden;
+  /* 用 clip 而非 hidden — hidden 會把 overflow-y 連帶轉成 auto，
+     讓 body 變成 scroll container，內部 position:sticky 就會失效 */
+  overflow-x: clip;
   scroll-behavior: smooth;
 }
 
@@ -123,6 +125,22 @@ header .header-content {
   display: flex;
   justify-content: space-between;
   align-items: center;
+}
+.header-title-row {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  flex: 0 1 auto;
+  min-width: 0;
+}
+.header-greeting {
+  font-size: 14px;
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+.header-greeting strong {
+  color: var(--text-primary);
+  font-weight: 600;
 }
 
 header h1 {
@@ -259,6 +277,29 @@ header h1 {
   font-weight: 700;
 }
 
+/* 第二排：依使用者標記的熟悉度過濾 */
+.familiarity-filter-panel {
+  background-color: var(--bg-surface);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  padding: 12px 20px;
+  margin: 0 0 24px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+.familiarity-filter-label {
+  font-size: 13px;
+  color: var(--text-secondary);
+  margin-right: 4px;
+}
+.familiarity-filter-clear {
+  margin-left: auto;
+  padding: 4px 12px;
+  font-size: 12px;
+}
+
 /* Grid Filter System */
 .filter-panel {
   background-color: var(--bg-surface);
@@ -279,8 +320,57 @@ header h1 {
 }
 
 @media (max-width: 600px) {
+  /* 改成 2 欄 grid，搜尋框跨整列 — 5 欄輸入收成 3 列(search / brand idol / unit type)
+     比原本 5 列(全部單欄)節省約 40% 高度 */
   .filter-panel {
-    grid-template-columns: 1fr;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    padding: 14px;
+    margin: 16px 0;
+  }
+  .filter-panel > *:first-child {
+    grid-column: 1 / -1;
+  }
+  /* 標題列：暱稱顯示在標題下方一行 (h1 + greeting 一起 wrap) */
+  .header-title-row {
+    flex: 1 1 100%;
+    flex-wrap: wrap;
+    gap: 4px 8px;
+  }
+  .header-greeting {
+    font-size: 12px;
+  }
+  /* 熟悉度 filter：手機改 5 等寬 grid，label 自成一列、5 個 chip 平行一排 */
+  .familiarity-filter-panel {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 6px 4px;
+    align-items: stretch;
+  }
+  .familiarity-filter-label {
+    grid-column: 1 / -1;
+    margin-right: 0;
+  }
+  .familiarity-filter-panel .familiarity-btn {
+    padding: 8px 2px;
+    font-size: 11px;
+    text-align: center;
+    white-space: nowrap;
+    min-width: 0;
+  }
+  .familiarity-filter-clear {
+    grid-column: 1 / -1;
+    justify-self: end;
+    margin-left: 0 !important;
+  }
+  /* 定義卡 padding 縮一點 */
+  .familiarity-definitions-card {
+    padding: 14px;
+    margin-bottom: 16px;
+  }
+  .familiarity-filter-panel {
+    padding: 10px 14px;
+    margin-bottom: 16px;
   }
 }
 
@@ -689,6 +779,29 @@ header h1 {
   display: flex;
   align-items: center;
   gap: 6px;
+  /* 改成 <button> 後要蓋掉預設樣式 */
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  width: 100%;
+  text-align: left;
+  font-family: inherit;
+}
+.familiarity-definitions-card.is-closed .definitions-title {
+  margin-bottom: 0;
+}
+.defs-chevron {
+  margin-left: auto;
+  font-size: 16px;
+  width: 18px;
+  text-align: center;
+  color: var(--text-muted);
+}
+@media (min-width: 768px) {
+  /* 桌面不需要 toggle 功能：把 chevron 藏起來、cursor 改回 default */
+  .defs-chevron { display: none; }
+  .definitions-title { cursor: default; }
 }
 
 .definitions-grid {
@@ -787,5 +900,103 @@ header h1 {
 
 .pitch-table tbody tr:hover {
   background-color: var(--bg-surface-hover);
+}
+
+/* ───────────────────────────────────────────────────────────
+   RWD：手機 / 平板版型修正
+   ─────────────────────────────────────────────────────────── */
+
+/* Header：手機讓標題與 nav 分行；避免「音域對照表」5 字被擠成 3 行 */
+@media (max-width: 768px) {
+  header {
+    padding: 12px 0;
+  }
+  header .header-content {
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+  header h1 {
+    font-size: 18px;
+    flex: 1 1 100%;
+  }
+  .auth-nav {
+    flex: 1 1 100%;
+    gap: 6px;
+    flex-wrap: wrap;
+    justify-content: flex-start;
+  }
+  /* 蓋掉 page.tsx 內 inline 的 padding/fontSize，避免行內字數被擠直書 */
+  .auth-nav .btn,
+  .auth-nav a.btn,
+  .auth-nav button {
+    padding: 4px 8px !important;
+    font-size: 11px !important;
+    white-space: nowrap;
+  }
+  .auth-nav > span {
+    font-size: 11px !important;
+    white-space: nowrap;
+  }
+}
+
+/* 卡片內 5 顆熟悉度按鈕：手機改 5 等寬 grid，文字縮一點不再 wrap 不齊 */
+@media (max-width: 600px) {
+  .familiarity-options {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 4px;
+    width: 100%;
+  }
+  .familiarity-options .familiarity-btn {
+    padding: 8px 2px;
+    font-size: 11px;
+    text-align: center;
+    white-space: nowrap;
+    min-width: 0;
+  }
+}
+
+/* 第一排 filter panel 在 tablet+ sticky，捲列表時還能就地改條件
+   (手機不 sticky — 5 行高度約佔 1/3 視口，黏住反而擋畫面) */
+@media (min-width: 768px) {
+  .filter-panel {
+    position: sticky;
+    top: 72px; /* 留給 sticky header 的空間 */
+    z-index: 50;
+  }
+}
+
+/* 返回最上層 FAB */
+.back-to-top {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: var(--accent-color);
+  color: #fff;
+  border: none;
+  cursor: pointer;
+  box-shadow: var(--shadow-md, 0 4px 12px rgba(0, 0, 0, 0.18));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+  font-weight: bold;
+  line-height: 1;
+  z-index: 90;
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(8px);
+  transition: opacity 0.18s ease, transform 0.18s ease, background 0.18s ease;
+}
+.back-to-top.visible {
+  opacity: 1;
+  pointer-events: auto;
+  transform: translateY(0);
+}
+.back-to-top:hover {
+  background: var(--accent-text-dark, var(--accent-color));
 }
 

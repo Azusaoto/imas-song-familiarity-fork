@@ -20,5 +20,5 @@ global.fetch = vi.fn().mockImplementation(() =>
 test('Home page renders title and filters correctly', () => {
   render(<SongFamiliarityHub />);
   expect(screen.getByText('IMAS Song Familiarity Hub')).toBeDefined();
-  expect(screen.getByPlaceholderText('搜尋歌名、參與成員、聲優姓名...')).toBeDefined();
+  expect(screen.getByPlaceholderText('搜尋歌名、參與成員、聲優姓名、組合名...')).toBeDefined();
 });
