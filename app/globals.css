@@ -267,14 +267,169 @@ header h1 {
   padding: 20px;
   margin: 24px 0;
   display: grid;
-  grid-template-columns: 2fr 1fr 1fr;
-  gap: 16px;
+  grid-template-columns: 2fr 1fr 1fr 1fr 1fr;
+  gap: 12px;
+  align-items: stretch;
 }
 
-@media (max-width: 768px) {
+@media (max-width: 1100px) {
+  .filter-panel {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+@media (max-width: 600px) {
   .filter-panel {
     grid-template-columns: 1fr;
   }
+}
+
+/* ──────── MultiSelect ──────── */
+.multiselect {
+  position: relative;
+  width: 100%;
+}
+
+.multiselect-trigger {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  text-align: left;
+  cursor: pointer;
+  min-height: 44px;
+  padding-right: 36px;
+  background-color: var(--bg-surface);
+  user-select: none;
+}
+
+.multiselect-trigger:focus {
+  outline: none;
+  border-color: var(--accent-color);
+  box-shadow: 0 0 0 3px var(--accent-glow);
+}
+
+.multiselect-trigger-label {
+  flex: 1;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-size: 14px;
+}
+
+.multiselect-clear {
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  line-height: 1;
+  color: var(--text-muted, #999);
+  cursor: pointer;
+  background: transparent;
+}
+
+.multiselect-clear:hover {
+  background-color: var(--button-secondary-hover, #eee);
+  color: var(--text-primary);
+}
+
+.multiselect-panel {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  z-index: 50;
+  background-color: var(--bg-surface);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+  max-height: 360px;
+  display: flex;
+  flex-direction: column;
+}
+
+.multiselect-panel-header {
+  padding: 8px;
+  border-bottom: 1px solid var(--border-color);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.multiselect-search {
+  padding: 8px 12px;
+  font-size: 13px;
+  min-height: 32px;
+}
+
+.multiselect-panel-meta {
+  font-size: 11px;
+  color: var(--text-secondary);
+  padding: 0 4px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.multiselect-link {
+  background: none;
+  border: none;
+  color: var(--accent-color, #0070f3);
+  cursor: pointer;
+  padding: 0;
+  font-size: 11px;
+  text-decoration: underline;
+}
+
+.multiselect-options {
+  list-style: none;
+  margin: 0;
+  padding: 4px 0;
+  overflow-y: auto;
+  flex: 1;
+}
+
+.multiselect-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  cursor: pointer;
+  font-size: 13px;
+}
+
+.multiselect-option:hover {
+  background-color: var(--button-secondary-hover, #f4f4f4);
+}
+
+.multiselect-option.is-checked {
+  background-color: var(--accent-glow, rgba(146, 207, 187, 0.15));
+}
+
+.multiselect-option-label {
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.multiselect-option-sublabel {
+  color: var(--text-secondary);
+  font-size: 11px;
+}
+
+.multiselect-empty {
+  padding: 16px;
+  text-align: center;
+  color: var(--text-secondary);
+  font-size: 13px;
 }
 
 /* Songs Grid Layout */

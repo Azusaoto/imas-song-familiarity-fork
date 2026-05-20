@@ -1,10 +1,12 @@
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useSession, signIn, signOut } from 'next-auth/react';
 import MemberToggle from '@/components/MemberToggle';
+import MultiSelect, { MultiSelectOption } from '@/components/MultiSelect';
 import { buildThemeVars, getBrandColor, getBrandDisplayName, getAccentTextColor } from '@/lib/themeUtils';
 import { BrandIcon } from '@/components/BrandIcon';
+import { brandToProduction, shouldFilterByProduction } from '@/lib/brandMap';
 
 interface Song {
   id: string;
@@ -17,7 +19,27 @@ interface Song {
   arranger: string | null;
   lowestPitch: string | null;
   highestPitch: string | null;
-  members: Array<{ name: string; cvName: string | null }>;
+  members: Array<{ id?: string; name: string; cvName: string | null }>;
+  units?: Array<{ id: string; name: string }>;
+}
+
+interface Idol {
+  id: string;
+  taxId: number | null;
+  name: string;
+  kana: string | null;
+  cvName: string | null;
+  production: string | null;
+}
+
+interface Unit {
+  id: string;
+  taxId: number | null;
+  name: string;
+  kana: string | null;
+  production: string | null;
+  memberIds: string[];
+  memberCount: number;
 }
 
 const pitchHierarchy = [
@@ -88,11 +110,17 @@ export default function SongFamiliarityHub() {
   const [songs, setSongs] = useState<Song[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // 篩選與搜尋狀態
+  // 篩選與搜尋狀態 — 全部支援多選 + OR 語意；預設皆空（=顯示全部）
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedBrand, setSelectedBrand] = useState('music_ml'); // 預設選擇第一項 (Million Live)
-  const [selectedType, setSelectedType] = useState('all');
+  const [selectedBrands, setSelectedBrands] = useState<string[]>([]);
+  const [selectedTypes, setSelectedTypes] = useState<string[]>([]);
+  const [selectedIdols, setSelectedIdols] = useState<string[]>([]);
+  const [selectedUnits, setSelectedUnits] = useState<string[]>([]);
   const [showPitchModal, setShowPitchModal] = useState(false);
+
+  // 偶像 / 組合 全列表（一次載入後 client-side 過濾）
+  const [allIdols, setAllIdols] = useState<Idol[]>([]);
+  const [allUnits, setAllUnits] = useState<Unit[]>([]);
 
   // 熟悉度狀態對照表 (songId -> familiarity)
   const [selections, setSelections] = useState<Record<string, number>>({});
@@ -135,7 +163,8 @@ export default function SongFamiliarityHub() {
   useEffect(() => {
     async function loadSongs() {
       try {
-        const res = await fetch('/api/songs');
+        // 加 schema 版本當 cache-bust，避免瀏覽器拿到舊版（沒 units / 沒 member.id）的快取
+        const res = await fetch('/api/songs?schema=v2', { cache: 'no-cache' });
         const data = await res.json();
         if (Array.isArray(data)) {
           setSongs(data);
@@ -148,6 +177,126 @@ export default function SongFamiliarityHub() {
     }
     loadSongs();
   }, []);
+
+  // 1b. 載入偶像 + 組合列表（給下拉選單用，受品牌篩選）
+  useEffect(() => {
+    fetch('/api/idols')
+      .then((r) => r.json())
+      .then((data) => Array.isArray(data) && setAllIdols(data))
+      .catch((e) => console.error('無法載入偶像列表:', e));
+    fetch('/api/units')
+      .then((r) => r.json())
+      .then((data) => Array.isArray(data) && setAllUnits(data))
+      .catch((e) => console.error('無法載入組合列表:', e));
+  }, []);
+
+  // 1c. 連動：依目前選的多個 brand，把 production 聯集起來篩偶像下拉
+  // 若任一 brand 是「不限制」(godo/cover/remix/all)，就不過濾 (顯示全部)
+  // 若沒選 brand → 顯示全部
+  const allowedProductions = useMemo<Set<string> | null>(() => {
+    if (selectedBrands.length === 0) return null; // null = 不過濾
+    const acc = new Set<string>();
+    for (const b of selectedBrands) {
+      if (!shouldFilterByProduction(b)) return null; // 任一不限制 → 全放
+      for (const p of brandToProduction[b]) acc.add(p);
+    }
+    return acc;
+  }, [selectedBrands]);
+
+  const idolOptions = useMemo<MultiSelectOption[]>(() => {
+    const filtered =
+      allowedProductions === null
+        ? allIdols
+        : allIdols.filter(
+            (i) => i.production && allowedProductions.has(i.production),
+          );
+    return filtered.map((i) => ({
+      id: i.id,
+      label: i.name,
+      sublabel: i.cvName ? `(${i.cvName})` : undefined,
+      searchAlias: [i.kana, i.cvName].filter(Boolean).join(' '),
+    }));
+  }, [allIdols, allowedProductions]);
+
+  const unitOptions = useMemo<MultiSelectOption[]>(() => {
+    const filtered =
+      allowedProductions === null
+        ? allUnits
+        : allUnits.filter(
+            (u) =>
+              u.production === 'mixed' ||
+              (u.production && allowedProductions.has(u.production)),
+          );
+    return filtered.map((u) => ({
+      id: u.id,
+      label: u.name,
+      sublabel: u.memberCount > 0 ? `(${u.memberCount}人)` : undefined,
+      searchAlias: u.kana ?? undefined,
+    }));
+  }, [allUnits, allowedProductions]);
+
+  // 切換品牌時，移除偶像 / 組合中已不在新選項裡的項目
+  function handleBrandsChange(next: string[]) {
+    setSelectedBrands(next);
+    // 計算新 allowed
+    if (next.length === 0) return; // 不過濾 → 不用清
+    const newAllowed = new Set<string>();
+    let unrestricted = false;
+    for (const b of next) {
+      if (!shouldFilterByProduction(b)) {
+        unrestricted = true;
+        break;
+      }
+      for (const p of brandToProduction[b]) newAllowed.add(p);
+    }
+    if (unrestricted) return;
+    setSelectedIdols((prev) =>
+      prev.filter((id) => {
+        const idol = allIdols.find((x) => x.id === id);
+        return idol && idol.production && newAllowed.has(idol.production);
+      }),
+    );
+    setSelectedUnits((prev) =>
+      prev.filter((id) => {
+        const u = allUnits.find((x) => x.id === id);
+        return (
+          u &&
+          (u.production === 'mixed' ||
+            (u.production && newAllowed.has(u.production)))
+        );
+      }),
+    );
+  }
+
+  // brand 選項給 MultiSelect 用
+  const BRAND_VALUES = [
+    'music_ml',
+    'music_cg',
+    'music_shiny',
+    'music_as',
+    'music_876',
+    'music_sidem',
+    'music_gakuen',
+    'music_godo',
+    'music_cover',
+    'music_remix',
+  ] as const;
+  const brandOptions = useMemo<MultiSelectOption[]>(
+    () =>
+      BRAND_VALUES.map((b) => ({
+        id: b,
+        label: getBrandDisplayName(b),
+      })),
+    [],
+  );
+
+  const typeOptions = useMemo<MultiSelectOption[]>(
+    () => [
+      { id: 'solo', label: 'Solo (單人獨唱)' },
+      { id: 'unit', label: 'Unit (組合 / 合唱)' },
+    ],
+    [],
+  );
 
   // 2. 當登入狀態改變時，載入雲端或本機儲存空間
   useEffect(() => {
@@ -354,33 +503,77 @@ export default function SongFamiliarityHub() {
     }
   }
 
-  // 8. 過濾歌曲清單 (效能高度最佳化)
+  // 8. 過濾歌曲清單
+  //
+  // 設計原則：
+  // - 每個 filter 內部 = OR（任一匹配就算）
+  // - filter 之間 = AND（要全部 pass 才算）
+  // - 任何 filter 是空陣列 = 不限制（顯示全部）
+  // - 關鍵字搜尋為全域：有 query 時自動忽略 brand 篩選
+  const hasQuery = searchQuery.trim() !== '';
+  const selectedIdolSet = useMemo(() => new Set(selectedIdols), [selectedIdols]);
+  const selectedUnitSet = useMemo(() => new Set(selectedUnits), [selectedUnits]);
+  const selectedBrandSet = useMemo(() => new Set(selectedBrands), [selectedBrands]);
+
   const filteredSongs = songs.filter((song) => {
-    // Brand 篩選 (不為 all 時強制符合)
-    if (selectedBrand !== 'all' && song.brand !== selectedBrand) {
+    // Brand：任一匹配（hasQuery 時鬆綁）
+    if (!hasQuery && selectedBrandSet.size > 0 && !selectedBrandSet.has(song.brand)) {
       return false;
     }
 
-    // MusicType 篩選
-    if (selectedType !== 'all') {
+    // MusicType：任一 type substring 命中即可
+    if (selectedTypes.length > 0) {
       const typeStr = song.musicType.toLowerCase();
-      if (!typeStr.includes(selectedType)) return false;
+      const ok = selectedTypes.some((t) => typeStr.includes(t));
+      if (!ok) return false;
     }
 
-    // 關鍵字搜尋：歌名、成員、聲優名
-    if (searchQuery.trim() !== '') {
+    // 偶像：任一被選的偶像有出現在 song.members
+    if (selectedIdolSet.size > 0) {
+      const ok = (song.members ?? []).some(
+        (m) => m.id && selectedIdolSet.has(m.id),
+      );
+      if (!ok) return false;
+    }
+
+    // 組合：任一被選的組合有出現在 song.units
+    if (selectedUnitSet.size > 0) {
+      const ok = (song.units ?? []).some((u) => selectedUnitSet.has(u.id));
+      if (!ok) return false;
+    }
+
+    // 關鍵字搜尋：歌名、成員、CV、組合名
+    if (hasQuery) {
       const query = searchQuery.toLowerCase();
       const matchTitle = song.title.toLowerCase().includes(query);
-      const matchMember = song.members.some(
+      const matchMember = (song.members ?? []).some(
         (m) =>
           m.name.toLowerCase().includes(query) ||
-          (m.cvName && m.cvName.toLowerCase().includes(query))
+          (m.cvName && m.cvName.toLowerCase().includes(query)),
       );
-      if (!matchTitle && !matchMember) return false;
+      const matchUnit = (song.units ?? []).some((u) =>
+        u.name.toLowerCase().includes(query),
+      );
+      if (!matchTitle && !matchMember && !matchUnit) return false;
     }
 
     return true;
   });
+
+  function clearAllFilters() {
+    setSearchQuery('');
+    setSelectedBrands([]);
+    setSelectedTypes([]);
+    setSelectedIdols([]);
+    setSelectedUnits([]);
+  }
+
+  const anyFilterActive =
+    hasQuery ||
+    selectedBrands.length > 0 ||
+    selectedTypes.length > 0 ||
+    selectedIdols.length > 0 ||
+    selectedUnits.length > 0;
 
   // 動態設定主題色（含所有衍生色）
   const currentThemeColor = session?.user?.themeColor || '#92cfbb';
@@ -435,52 +628,68 @@ export default function SongFamiliarityHub() {
       </header>
 
       <main className="container" style={{ flex: 1, paddingTop: '20px' }}>
-        {/* 搜尋與篩選大廳面版 */}
-        <section className="filter-panel">
-          <div>
+        {/* 搜尋與篩選 */}
+        <section className="filter-panel" data-testid="filter-panel">
+          <div style={{ position: 'relative' }}>
             <input
               type="text"
               className="form-input"
-              placeholder="搜尋歌名、參與成員、聲優姓名..."
+              placeholder="搜尋歌名、參與成員、聲優姓名、組合名..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
+              data-testid="filter-search"
+              style={{ paddingRight: searchQuery ? '36px' : undefined }}
             />
+            {searchQuery && (
+              <span
+                role="button"
+                aria-label="清除搜尋"
+                onClick={() => setSearchQuery('')}
+                className="multiselect-clear"
+                data-testid="filter-search-clear"
+              >
+                ×
+              </span>
+            )}
           </div>
-          <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
-            <div style={{ position: 'absolute', left: '12px', width: '20px', height: '20px', display: 'flex', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none' }}>
-              <BrandIcon brand={selectedBrand} className="brand-select-icon" />
-            </div>
-            <select
-              className="form-input"
-              value={selectedBrand}
-              onChange={(e) => setSelectedBrand(e.target.value)}
-              style={{ cursor: 'pointer', paddingLeft: '38px' }}
-            >
-              <option value="music_ml">{getBrandDisplayName('music_ml')}</option>
-              <option value="music_cg">{getBrandDisplayName('music_cg')}</option>
-              <option value="music_shiny">{getBrandDisplayName('music_shiny')}</option>
-              <option value="music_as">{getBrandDisplayName('music_as')}</option>
-              <option value="music_876">{getBrandDisplayName('music_876')}</option>
-              <option value="music_sidem">{getBrandDisplayName('music_sidem')}</option>
-              <option value="music_gakuen">{getBrandDisplayName('music_gakuen')}</option>
-              <option value="music_godo">{getBrandDisplayName('music_godo')}</option>
-              <option value="music_cover">{getBrandDisplayName('music_cover')}</option>
-              <option value="music_remix">{getBrandDisplayName('music_remix')}</option>
-              <option value="all">{getBrandDisplayName('all')}</option>
-            </select>
-          </div>
-          <div>
-            <select
-              className="form-input"
-              value={selectedType}
-              onChange={(e) => setSelectedType(e.target.value)}
-              style={{ cursor: 'pointer' }}
-            >
-              <option value="all">所有歌曲類型</option>
-              <option value="solo">Solo (單人獨唱)</option>
-              <option value="unit">Unit (組合/合唱)</option>
-            </select>
-          </div>
+          <MultiSelect
+            options={brandOptions}
+            value={selectedBrands}
+            onChange={handleBrandsChange}
+            placeholder="所有偶像團體"
+            searchPlaceholder="搜尋品牌..."
+            leftIcon={
+              <BrandIcon
+                brand={selectedBrands[0] ?? 'all'}
+                className="brand-select-icon"
+              />
+            }
+            className="ms-brand"
+          />
+          <MultiSelect
+            options={idolOptions}
+            value={selectedIdols}
+            onChange={setSelectedIdols}
+            placeholder={`偶像 (${idolOptions.length})`}
+            searchPlaceholder="搜尋偶像名 / CV / 假名..."
+            className="ms-idol"
+          />
+          <MultiSelect
+            options={unitOptions}
+            value={selectedUnits}
+            onChange={setSelectedUnits}
+            placeholder={`組合 (${unitOptions.length})`}
+            searchPlaceholder="搜尋組合名..."
+            className="ms-unit"
+          />
+          <MultiSelect
+            options={typeOptions}
+            value={selectedTypes}
+            onChange={setSelectedTypes}
+            placeholder="歌曲類型"
+            searchPlaceholder=""
+            className="ms-type"
+          />
         </section>
 
         {/* 熟悉度定義說明 */}
@@ -502,8 +711,30 @@ export default function SongFamiliarityHub() {
           </div>
         ) : (
           <section className="songs-grid">
-            <div style={{ marginBottom: '10px', fontSize: '14px', color: 'var(--text-secondary)' }}>
-              顯示 {filteredSongs.length} 首歌曲
+            <div
+              style={{
+                marginBottom: '10px',
+                fontSize: '14px',
+                color: 'var(--text-secondary)',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '12px',
+              }}
+            >
+              <span data-testid="result-count">
+                顯示 {filteredSongs.length} 首歌曲
+              </span>
+              {anyFilterActive && (
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  style={{ padding: '4px 10px', fontSize: '12px' }}
+                  onClick={clearAllFilters}
+                  data-testid="clear-all-filters"
+                >
+                  清除所有篩選
+                </button>
+              )}
             </div>
             
             {filteredSongs.map((song) => {

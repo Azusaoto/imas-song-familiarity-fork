@@ -10,6 +10,11 @@ export async function GET() {
             member: true,
           },
         },
+        units: {
+          include: {
+            unit: true,
+          },
+        },
       },
       orderBy: {
         title: 'asc',
@@ -29,17 +34,24 @@ export async function GET() {
       lowestPitch: song.lowestPitch,
       highestPitch: song.highestPitch,
       members: song.members.map((m) => ({
+        id: m.member.id,
         name: m.member.name,
         cvName: m.member.cvName,
       })),
+      units: song.units.map((su) => ({
+        id: su.unit.id,
+        name: su.unit.name,
+      })),
     }));
 
-    // 設定快取控制，快取 1 小時以增進讀取速度
+    // 設定快取控制 — 縮短為 60s 以免 schema 變動時客戶端拿到過期 shape
+    // 加上 v2 標籤幫助舊客戶端跳過已 cache 的舊版回應
     return new NextResponse(JSON.stringify(formattedSongs), {
       status: 200,
       headers: {
         'Content-Type': 'application/json',
-        'Cache-Control': 'public, max-age=3600, stale-while-revalidate=600',
+        'Cache-Control': 'public, max-age=60, stale-while-revalidate=30',
+        'X-Songs-Schema': 'v2-with-units',
       },
     });
   } catch (error: any) {

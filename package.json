@@ -6,7 +6,11 @@
     "dev": "next dev",
     "build": "prisma generate && next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "sync:idols": "ts-node --project scripts/tsconfig.json scripts/sync-idols.ts",
+    "sync:units": "ts-node --project scripts/tsconfig.json scripts/sync-units.ts",
+    "sync:songs": "ts-node --project scripts/tsconfig.json scripts/scrape.ts",
+    "sync:pitches": "ts-node --project scripts/tsconfig.json scripts/update-pitches.ts"
   },
   "dependencies": {
     "@prisma/client": "^5.22.0",
