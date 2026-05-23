@@ -33,7 +33,12 @@ export default async function PublicPlaylistPage({ params }: PageProps) {
       song: {
         include: {
           members: { include: { member: true } },
-          units: { include: { unit: true } },
+          units: {
+            include: {
+              // 用 _count 直接帶 memberCount 進來，省掉另一次 UnitMember.findMany round-trip
+              unit: { include: { _count: { select: { members: true } } } },
+            },
+          },
         },
       },
     },
@@ -64,8 +69,9 @@ export default async function PublicPlaylistPage({ params }: PageProps) {
   }));
 
   // 下拉只列「實際出現在這份歌單裡」的偶像 / 組合，比抓全部 263+301 更聚焦
+  // memberCount 直接吃 Prisma _count.members，不再多打一次 UnitMember.findMany
   const idolMap = new Map<string, PlaylistIdol>();
-  const unitMap = new Map<string, PlaylistUnit & { _memberIds: Set<string> }>();
+  const unitMap = new Map<string, PlaylistUnit>();
   for (const sel of selections) {
     for (const m of sel.song.members) {
       if (!m.member.production) continue; // 跳過沒掛 production 的雜項
@@ -86,31 +92,17 @@ export default async function PublicPlaylistPage({ params }: PageProps) {
           name: su.unit.name,
           kana: su.unit.kana,
           production: su.unit.production,
-          memberCount: 0,
-          _memberIds: new Set<string>(),
+          memberCount: su.unit._count.members,
         });
       }
-    }
-  }
-  // 補 memberCount：以 UnitMember 表的實際關聯數為準
-  if (unitMap.size > 0) {
-    const unitMembers = await prisma.unitMember.findMany({
-      where: { unitId: { in: Array.from(unitMap.keys()) } },
-      select: { unitId: true, memberId: true },
-    });
-    for (const um of unitMembers) {
-      unitMap.get(um.unitId)?._memberIds.add(um.memberId);
-    }
-    for (const u of unitMap.values()) {
-      u.memberCount = u._memberIds.size;
     }
   }
   const idols: PlaylistIdol[] = Array.from(idolMap.values()).sort((a, b) =>
     (a.kana ?? a.name).localeCompare(b.kana ?? b.name, 'ja'),
   );
-  const units: PlaylistUnit[] = Array.from(unitMap.values())
-    .map(({ _memberIds, ...rest }) => rest)
-    .sort((a, b) => (a.kana ?? a.name).localeCompare(b.kana ?? b.name, 'ja'));
+  const units: PlaylistUnit[] = Array.from(unitMap.values()).sort((a, b) =>
+    (a.kana ?? a.name).localeCompare(b.kana ?? b.name, 'ja'),
+  );
 
   const themeColor = dbUser.themeColor || '#92cfbb';
 

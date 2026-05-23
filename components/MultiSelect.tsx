@@ -152,7 +152,10 @@ export default function MultiSelect({
       </button>
 
       {open && (
-        <div className="multiselect-panel" role="listbox">
+        // 注意：ARIA 規範要求 role="listbox" 內只能有 role="option" 或 group。
+        // 之前把它放在外層 div 上、底下含 search <input>，會讓螢幕閱讀器行為異常。
+        // 改成 role="listbox" 只套在 <ul> 上，search input 變成 sibling
+        <div className="multiselect-panel">
           <div className="multiselect-panel-header">
             <input
               type="text"
@@ -179,7 +182,7 @@ export default function MultiSelect({
             </div>
           </div>
 
-          <ul className="multiselect-options">
+          <ul className="multiselect-options" role="listbox" aria-multiselectable="true">
             {filteredOptions.length === 0 ? (
               <li className="multiselect-empty">沒有符合的項目</li>
             ) : (

@@ -5,7 +5,8 @@ import MemberToggle from '@/components/MemberToggle';
 import MultiSelect, { MultiSelectOption } from '@/components/MultiSelect';
 import { BrandIcon } from '@/components/BrandIcon';
 import { getBrandColor, getBrandDisplayName, getAccentTextColor } from '@/lib/themeUtils';
-import { brandToProduction, shouldFilterByProduction } from '@/lib/brandMap';
+import { BRAND_VALUES } from '@/lib/brandMap';
+import { useBrandFilter } from '@/lib/useBrandFilter';
 import { filterSongs } from '@/lib/filterSongs';
 
 export interface PlaylistSong {
@@ -52,19 +53,6 @@ const FAMILIARITY_LABEL: Record<number, string> = {
   4: '不太記得',
 };
 
-const BRAND_VALUES = [
-  'music_ml',
-  'music_cg',
-  'music_shiny',
-  'music_as',
-  'music_876',
-  'music_sidem',
-  'music_gakuen',
-  'music_godo',
-  'music_cover',
-  'music_remix',
-] as const;
-
 export default function PlaylistList({ songs, idols, units }: Props) {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedBrands, setSelectedBrands] = useState<string[]>([]);
@@ -74,45 +62,37 @@ export default function PlaylistList({ songs, idols, units }: Props) {
   // 公開歌單裡 familiarity 只會是 1-4(0 不會寫入 DB)，所以這裡也只開 4 個選項
   const [selectedFamiliarities, setSelectedFamiliarities] = useState<number[]>([]);
 
-  const allowedProductions = useMemo<Set<string> | null>(() => {
-    if (selectedBrands.length === 0) return null;
-    const acc = new Set<string>();
-    for (const b of selectedBrands) {
-      if (!shouldFilterByProduction(b)) return null;
-      for (const p of brandToProduction[b]) acc.add(p);
-    }
-    return acc;
-  }, [selectedBrands]);
+  // 共用 hook：算 allowedProductions + 過濾偶像/組合 + 切換 brand 連帶清掉非法選取
+  const { filteredIdols, filteredUnits, handleBrandsChange } = useBrandFilter({
+    selectedBrands,
+    allIdols: idols,
+    allUnits: units,
+    setSelectedBrands,
+    setSelectedIdols,
+    setSelectedUnits,
+  });
 
-  const idolOptions = useMemo<MultiSelectOption[]>(() => {
-    const filtered =
-      allowedProductions === null
-        ? idols
-        : idols.filter((i) => i.production && allowedProductions.has(i.production));
-    return filtered.map((i) => ({
-      id: i.id,
-      label: i.name,
-      sublabel: i.cvName ? `(${i.cvName})` : undefined,
-      searchAlias: [i.kana, i.cvName].filter(Boolean).join(' '),
-    }));
-  }, [idols, allowedProductions]);
+  const idolOptions = useMemo<MultiSelectOption[]>(
+    () =>
+      filteredIdols.map((i) => ({
+        id: i.id,
+        label: i.name,
+        sublabel: i.cvName ? `(${i.cvName})` : undefined,
+        searchAlias: [i.kana, i.cvName].filter(Boolean).join(' '),
+      })),
+    [filteredIdols],
+  );
 
-  const unitOptions = useMemo<MultiSelectOption[]>(() => {
-    const filtered =
-      allowedProductions === null
-        ? units
-        : units.filter(
-            (u) =>
-              u.production === 'mixed' ||
-              (u.production && allowedProductions.has(u.production)),
-          );
-    return filtered.map((u) => ({
-      id: u.id,
-      label: u.name,
-      sublabel: u.memberCount > 0 ? `(${u.memberCount}人)` : undefined,
-      searchAlias: u.kana ?? undefined,
-    }));
-  }, [units, allowedProductions]);
+  const unitOptions = useMemo<MultiSelectOption[]>(
+    () =>
+      filteredUnits.map((u) => ({
+        id: u.id,
+        label: u.name,
+        sublabel: u.memberCount > 0 ? `(${u.memberCount}人)` : undefined,
+        searchAlias: u.kana ?? undefined,
+      })),
+    [filteredUnits],
+  );
 
   const brandOptions = useMemo<MultiSelectOption[]>(() => {
     // 只列實際出現在這份歌單裡的 brand，下拉才不會有一堆空選項
@@ -130,37 +110,6 @@ export default function PlaylistList({ songs, idols, units }: Props) {
     ],
     [],
   );
-
-  function handleBrandsChange(next: string[]) {
-    setSelectedBrands(next);
-    if (next.length === 0) return;
-    const newAllowed = new Set<string>();
-    let unrestricted = false;
-    for (const b of next) {
-      if (!shouldFilterByProduction(b)) {
-        unrestricted = true;
-        break;
-      }
-      for (const p of brandToProduction[b]) newAllowed.add(p);
-    }
-    if (unrestricted) return;
-    setSelectedIdols((prev) =>
-      prev.filter((id) => {
-        const idol = idols.find((x) => x.id === id);
-        return idol && idol.production && newAllowed.has(idol.production);
-      }),
-    );
-    setSelectedUnits((prev) =>
-      prev.filter((id) => {
-        const u = units.find((x) => x.id === id);
-        return (
-          u &&
-          (u.production === 'mixed' ||
-            (u.production && newAllowed.has(u.production)))
-        );
-      }),
-    );
-  }
 
   const filteredSongs = useMemo(() => {
     const upstream = filterSongs(songs, {

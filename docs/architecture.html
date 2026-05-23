@@ -311,9 +311,9 @@ erDiagram
   </div>
 
   <div class="api-card">
-    <div class="api-head"><span class="method GET">GET</span><span class="path">/api/songs</span></div>
-    <div class="api-desc">取得全部歌曲 (含成員/CV)。回應快取 1 小時。</div>
-    <div class="api-io"><strong>200:</strong> Song[] (含 members)<br/><strong>Cache:</strong> public, max-age=3600</div>
+    <div class="api-head"><span class="method GET">GET</span><span class="path">/api/songs?schema=v2</span></div>
+    <div class="api-desc">取得全部歌曲 (含 members[].id + units)。Schema 仍在迭代，所以不走快取，每次直出。</div>
+    <div class="api-io"><strong>200:</strong> Song[] (含 members + units)<br/><strong>Cache:</strong> no-store</div>
   </div>
 
   <div class="api-card">
@@ -336,14 +336,14 @@ erDiagram
 
   <div class="api-card">
     <div class="api-head"><span class="method POST">POST</span><span class="path">/api/collab</span></div>
-    <div class="api-desc">多人歌單交集：取得 N 個 shareCode 都標記過的歌</div>
+    <div class="api-desc">多人歌單聯集：取得 N 個 shareCode 任一人標記過的歌 (前端再用 chip 二次篩選)</div>
     <div class="api-io"><strong>Body:</strong> { shareCodes: string[] }（至少 2 個）<br/><strong>200:</strong> { users: nickname[], songs: Song & { ratings } }</div>
   </div>
 
   <div class="api-card">
     <div class="api-head"><span class="method GET">GET</span><span class="path">/api/user/search?q=</span></div>
-    <div class="api-desc">依 nickname 模糊搜尋公開使用者 (上限 10 筆)</div>
-    <div class="api-io"><strong>Query:</strong> ?q=暱稱<br/><strong>200:</strong> { nickname, shareCode, themeColor }[]</div>
+    <div class="api-desc">依 nickname 模糊搜尋公開使用者 (大小寫通用，上限 50 筆；空 q 回所有公開使用者)</div>
+    <div class="api-io"><strong>Query:</strong> ?q=暱稱 (可空)<br/><strong>200:</strong> { nickname, shareCode, themeColor }[]</div>
   </div>
 
   <div class="api-card">
@@ -366,7 +366,7 @@ erDiagram
 <div class="tabs">
   <button class="tab active" onclick="showTab(event, 'flow1')">A. 訪客標記 / 註冊</button>
   <button class="tab" onclick="showTab(event, 'flow2')">B. 登入後雙軌儲存</button>
-  <button class="tab" onclick="showTab(event, 'flow3')">C. 共同歌單交集</button>
+  <button class="tab" onclick="showTab(event, 'flow3')">C. 共同歌單聯集</button>
   <button class="tab" onclick="showTab(event, 'flow4')">D. 公開歌單分享</button>
   <button class="tab" onclick="showTab(event, 'flow5')">E. 爬蟲增量更新</button>
 </div>
@@ -383,11 +383,11 @@ sequenceDiagram
   participant DB as Prisma/SQLite
 
   U->>P: 開啟首頁
-  P->>P: GET /api/songs (cache 1h)
+  P->>P: GET /api/songs?schema=v2 (no-store)
   P->>LS: 讀 guest_selections
   U->>P: 點「會唱」標記
+  Note over P,LS: 500ms debounce 後自動寫
   P->>LS: 寫 guest_selections
-  Note over P,LS: 60s autosave
   U->>P: 點「註冊」
   P->>API: POST {username,pw,nickname}
   API->>API: bcrypt.hash + SHA256(shareCode)
@@ -404,20 +404,19 @@ sequenceDiagram
 </div>
 
 <div id="flow2" class="tab-content panel">
-<h3>登入後：雙軌儲存 + 60 秒自動同步</h3>
+<h3>登入後：雙軌儲存 + debounce 自動同步 (500ms)</h3>
 <div class="mermaid">
 flowchart TB
   Click["使用者點熟悉度按鈕"] --> Update["setSelections(songId → 1~4)<br/>setUnsavedChanges(+1)"]
-  Update --> Float["右下出現「儲存變更 (N)」浮動鈕"]
-  Update --> Timer{"60 秒自動<br/>儲存計時器"}
-  Float -->|手動點| Save
-  Timer -->|時間到| Save["triggerSave()"]
+  Update --> Debounce{"debounce 500ms<br/>(連點會合併)"}
+  Update --> BU["beforeunload 警告<br/>(離開時還沒寫出去)"]
+  Debounce -->|時間到| Save["triggerSave()<br/>setSaveState('saving')"]
   Save --> Auth{"登入?"}
   Auth -->|是| Cloud["POST /api/selections<br/>批次 transaction"]
   Auth -->|否| Local["寫 LocalStorage<br/>guest_selections"]
   Cloud --> DB[("UserSelection 表<br/>familiarity=0 → delete<br/>1~4 → upsert")]
-  Cloud --> Clear["清空 unsavedChanges"]
-  Local --> Clear
+  Cloud --> Done["清空 unsavedChanges<br/>setSaveState('saved') → 1.5s → 'idle'"]
+  Local --> Done
 
   classDef auth fill:#fee2e2,stroke:#ef4444
   classDef guest fill:#dbeafe,stroke:#3b82f6
@@ -427,7 +426,7 @@ flowchart TB
 </div>
 
 <div id="flow3" class="tab-content panel">
-<h3>共同歌單交集 (/collab)</h3>
+<h3>共同歌單聯集 + 二次篩選 (/collab)</h3>
 <div class="mermaid">
 sequenceDiagram
   participant U as 使用者
@@ -436,18 +435,19 @@ sequenceDiagram
   participant Collab as /api/collab
   participant DB as Prisma/SQLite
 
-  U->>Page: 輸入朋友暱稱
-  Page->>Search: GET ?q=xxx
-  Search->>DB: User.findMany (isPublic=true)
-  DB-->>Search: 候選名單
+  U->>Page: focus 輸入框 (或輸入字串)
+  Page->>Search: GET ?q= (q 可空 → 列全部公開使用者)
+  Search->>DB: User.findMany (isPublic=true, contains insensitive)
+  DB-->>Search: 候選名單 (≤50)
   Search-->>Page: [{ nickname, shareCode, color }]
-  U->>Page: 選擇 2~N 人 + 送出
+  U->>Page: 選擇 ≥2 人 + 送出
   Page->>Collab: POST { shareCodes:[...] }
   Collab->>DB: 取 N 個 User
   Collab->>DB: UserSelection (userId IN, fam 1~4)
-  Collab->>Collab: 計算交集<br/>(所有人都標記過)
+  Collab->>Collab: 計算聯集 (任一人標過即出現)
   Collab-->>Page: { users, songs[ratings] }
-  Page->>U: 顯示交集歌單
+  Page->>Page: 三排 chip 二次篩選<br/>(依使用者 / 依熟悉度 / 依品牌)
+  Page->>U: 顯示過濾後歌單
 </div>
 </div>
 

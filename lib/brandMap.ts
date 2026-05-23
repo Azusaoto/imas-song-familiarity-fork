@@ -1,3 +1,17 @@
+// 全部 brand 值（UI 順序）— 之前在 page.tsx 與 PlaylistList.tsx 各自重複定義一份
+export const BRAND_VALUES = [
+  'music_ml',
+  'music_cg',
+  'music_shiny',
+  'music_as',
+  'music_876',
+  'music_sidem',
+  'music_gakuen',
+  'music_godo',
+  'music_cover',
+  'music_remix',
+] as const;
+
 // brand (UI 選單) → production codes 對照
 //
 // 注意：fujiwarahaji.me 同一事務所在不同 endpoint 用不同代碼，例如：

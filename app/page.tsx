@@ -6,7 +6,8 @@ import MemberToggle from '@/components/MemberToggle';
 import MultiSelect, { MultiSelectOption } from '@/components/MultiSelect';
 import { buildThemeVars, getBrandColor, getBrandDisplayName, getAccentTextColor } from '@/lib/themeUtils';
 import { BrandIcon } from '@/components/BrandIcon';
-import { brandToProduction, shouldFilterByProduction } from '@/lib/brandMap';
+import { BRAND_VALUES } from '@/lib/brandMap';
+import { useBrandFilter } from '@/lib/useBrandFilter';
 import { filterSongs } from '@/lib/filterSongs';
 import BackToTop from '@/components/BackToTop';
 
@@ -137,6 +138,11 @@ export default function SongFamiliarityHub() {
   const [selections, setSelections] = useState<Record<string, number>>({});
   // 未儲存變更隊列 (songId -> familiarity)
   const [unsavedChanges, setUnsavedChanges] = useState<Record<string, number>>({});
+  // 自動儲存狀態 — 給使用者看的視覺回饋
+  const [saveState, setSaveState] = useState<'idle' | 'saving' | 'saved'>('idle');
+
+  // 載入失敗時的 inline 提示
+  const [loadError, setLoadError] = useState<string | null>(null);
 
 
 
@@ -173,12 +179,16 @@ export default function SongFamiliarityHub() {
       try {
         // 加 schema 版本當 cache-bust，避免瀏覽器拿到舊版（沒 units / 沒 member.id）的快取
         const res = await fetch('/api/songs?schema=v2', { cache: 'no-cache' });
+        if (!res.ok) throw new Error(`${res.status}`);
         const data = await res.json();
         if (Array.isArray(data)) {
           setSongs(data);
+        } else {
+          throw new Error('回應格式錯誤');
         }
       } catch (e) {
         console.error('無法載入歌曲:', e);
+        setLoadError('歌曲資料載入失敗，請重新整理。');
       } finally {
         setLoading(false);
       }
@@ -187,108 +197,68 @@ export default function SongFamiliarityHub() {
   }, []);
 
   // 1b. 載入偶像 + 組合列表（給下拉選單用，受品牌篩選）
+  // 失敗的話除了 console.error 還要把錯誤訊息存進 loadError 給 UI 顯示，
+  // 避免使用者看到「偶像 (0)」這種令人困惑的下拉
   useEffect(() => {
     fetch('/api/idols')
-      .then((r) => r.json())
-      .then((data) => Array.isArray(data) && setAllIdols(data))
-      .catch((e) => console.error('無法載入偶像列表:', e));
+      .then((r) => {
+        if (!r.ok) throw new Error(`${r.status}`);
+        return r.json();
+      })
+      .then((data) => {
+        if (Array.isArray(data)) setAllIdols(data);
+        else throw new Error('回應格式錯誤');
+      })
+      .catch((e) => {
+        console.error('無法載入偶像列表:', e);
+        setLoadError('偶像 / 組合篩選資料載入失敗，請重新整理。');
+      });
     fetch('/api/units')
-      .then((r) => r.json())
-      .then((data) => Array.isArray(data) && setAllUnits(data))
-      .catch((e) => console.error('無法載入組合列表:', e));
+      .then((r) => {
+        if (!r.ok) throw new Error(`${r.status}`);
+        return r.json();
+      })
+      .then((data) => {
+        if (Array.isArray(data)) setAllUnits(data);
+        else throw new Error('回應格式錯誤');
+      })
+      .catch((e) => {
+        console.error('無法載入組合列表:', e);
+        setLoadError('偶像 / 組合篩選資料載入失敗，請重新整理。');
+      });
   }, []);
 
-  // 1c. 連動：依目前選的多個 brand，把 production 聯集起來篩偶像下拉
-  // 若任一 brand 是「不限制」(godo/cover/remix/all)，就不過濾 (顯示全部)
-  // 若沒選 brand → 顯示全部
-  const allowedProductions = useMemo<Set<string> | null>(() => {
-    if (selectedBrands.length === 0) return null; // null = 不過濾
-    const acc = new Set<string>();
-    for (const b of selectedBrands) {
-      if (!shouldFilterByProduction(b)) return null; // 任一不限制 → 全放
-      for (const p of brandToProduction[b]) acc.add(p);
-    }
-    return acc;
-  }, [selectedBrands]);
+  // 共用 hook：算 allowedProductions + 過濾偶像/組合 + 切換 brand 連帶清掉非法選取
+  const { filteredIdols, filteredUnits, handleBrandsChange } = useBrandFilter({
+    selectedBrands,
+    allIdols,
+    allUnits,
+    setSelectedBrands,
+    setSelectedIdols,
+    setSelectedUnits,
+  });
 
-  const idolOptions = useMemo<MultiSelectOption[]>(() => {
-    const filtered =
-      allowedProductions === null
-        ? allIdols
-        : allIdols.filter(
-            (i) => i.production && allowedProductions.has(i.production),
-          );
-    return filtered.map((i) => ({
-      id: i.id,
-      label: i.name,
-      sublabel: i.cvName ? `(${i.cvName})` : undefined,
-      searchAlias: [i.kana, i.cvName].filter(Boolean).join(' '),
-    }));
-  }, [allIdols, allowedProductions]);
+  const idolOptions = useMemo<MultiSelectOption[]>(
+    () =>
+      filteredIdols.map((i) => ({
+        id: i.id,
+        label: i.name,
+        sublabel: i.cvName ? `(${i.cvName})` : undefined,
+        searchAlias: [i.kana, i.cvName].filter(Boolean).join(' '),
+      })),
+    [filteredIdols],
+  );
 
-  const unitOptions = useMemo<MultiSelectOption[]>(() => {
-    const filtered =
-      allowedProductions === null
-        ? allUnits
-        : allUnits.filter(
-            (u) =>
-              u.production === 'mixed' ||
-              (u.production && allowedProductions.has(u.production)),
-          );
-    return filtered.map((u) => ({
-      id: u.id,
-      label: u.name,
-      sublabel: u.memberCount > 0 ? `(${u.memberCount}人)` : undefined,
-      searchAlias: u.kana ?? undefined,
-    }));
-  }, [allUnits, allowedProductions]);
-
-  // 切換品牌時，移除偶像 / 組合中已不在新選項裡的項目
-  function handleBrandsChange(next: string[]) {
-    setSelectedBrands(next);
-    // 計算新 allowed
-    if (next.length === 0) return; // 不過濾 → 不用清
-    const newAllowed = new Set<string>();
-    let unrestricted = false;
-    for (const b of next) {
-      if (!shouldFilterByProduction(b)) {
-        unrestricted = true;
-        break;
-      }
-      for (const p of brandToProduction[b]) newAllowed.add(p);
-    }
-    if (unrestricted) return;
-    setSelectedIdols((prev) =>
-      prev.filter((id) => {
-        const idol = allIdols.find((x) => x.id === id);
-        return idol && idol.production && newAllowed.has(idol.production);
-      }),
-    );
-    setSelectedUnits((prev) =>
-      prev.filter((id) => {
-        const u = allUnits.find((x) => x.id === id);
-        return (
-          u &&
-          (u.production === 'mixed' ||
-            (u.production && newAllowed.has(u.production)))
-        );
-      }),
-    );
-  }
-
-  // brand 選項給 MultiSelect 用
-  const BRAND_VALUES = [
-    'music_ml',
-    'music_cg',
-    'music_shiny',
-    'music_as',
-    'music_876',
-    'music_sidem',
-    'music_gakuen',
-    'music_godo',
-    'music_cover',
-    'music_remix',
-  ] as const;
+  const unitOptions = useMemo<MultiSelectOption[]>(
+    () =>
+      filteredUnits.map((u) => ({
+        id: u.id,
+        label: u.name,
+        sublabel: u.memberCount > 0 ? `(${u.memberCount}人)` : undefined,
+        searchAlias: u.kana ?? undefined,
+      })),
+    [filteredUnits],
+  );
   const brandOptions = useMemo<MultiSelectOption[]>(
     () =>
       BRAND_VALUES.map((b) => ({
@@ -348,10 +318,12 @@ export default function SongFamiliarityHub() {
     return () => clearTimeout(t);
   }, [unsavedChanges, selections, status]);
 
-  // 4. 執行儲存變更 (雙軌機制)
+  // 4. 執行儲存變更 (雙軌機制) — 同步更新 saveState 給 UI 顯示
   async function triggerSave(isAuto = false) {
     const keys = Object.keys(unsavedChanges);
     if (keys.length === 0) return;
+
+    setSaveState('saving');
 
     if (status === 'authenticated') {
       // 登入狀態：推送到伺服器資料庫
@@ -369,23 +341,39 @@ export default function SongFamiliarityHub() {
 
         if (res.ok) {
           setUnsavedChanges({});
+          setSaveState('saved');
+          setTimeout(() => setSaveState('idle'), 1500);
           console.log(isAuto ? '背景自動儲存成功！' : '手動儲存成功！');
         } else {
+          setSaveState('idle');
           console.error('儲存失敗');
         }
       } catch (err) {
+        setSaveState('idle');
         console.error('儲存時發生錯誤:', err);
       }
     } else {
       // 訪客狀態：直接寫入 LocalStorage
       const updatedSelections = { ...selections };
-      
-      // 更新暫存
       localStorage.setItem('guest_selections', JSON.stringify(updatedSelections));
       setUnsavedChanges({});
+      setSaveState('saved');
+      setTimeout(() => setSaveState('idle'), 1500);
       console.log(isAuto ? '背景自動暫存至本機成功！' : '手動暫存至本機成功！');
     }
   }
+
+  // beforeunload：未儲存變更時跳離開警告 (保險，防 debounce 500ms 內離開)
+  useEffect(() => {
+    if (Object.keys(unsavedChanges).length === 0) return;
+    const handler = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      // 現代瀏覽器忽略 returnValue 內文，只看是否有值就跳預設文案
+      e.returnValue = '';
+    };
+    window.addEventListener('beforeunload', handler);
+    return () => window.removeEventListener('beforeunload', handler);
+  }, [unsavedChanges]);
 
   // 5. 點選熟悉度更新
   function handleSelect(songId: string, familiarity: number) {
@@ -649,6 +637,37 @@ export default function SongFamiliarityHub() {
       </header>
 
       <main className="container" style={{ flex: 1, paddingTop: '20px' }}>
+        {/* 載入失敗 inline 提示 */}
+        {loadError && (
+          <div
+            role="alert"
+            data-testid="load-error-banner"
+            style={{
+              padding: '12px 16px',
+              marginBottom: '12px',
+              borderRadius: 'var(--radius-md)',
+              backgroundColor: 'rgba(239, 68, 68, 0.08)',
+              border: '1px solid rgba(239, 68, 68, 0.4)',
+              color: '#b91c1c',
+              fontSize: '13px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+            }}
+          >
+            <span>⚠</span>
+            <span style={{ flex: 1 }}>{loadError}</span>
+            <button
+              type="button"
+              onClick={() => location.reload()}
+              className="btn btn-secondary"
+              style={{ padding: '4px 10px', fontSize: '12px' }}
+            >
+              重新整理
+            </button>
+          </div>
+        )}
+
         {/* 搜尋與篩選 */}
         <section className="filter-panel" data-testid="filter-panel">
           <div style={{ position: 'relative' }}>
@@ -944,6 +963,18 @@ export default function SongFamiliarityHub() {
           </section>
         )}
       </main>
+
+      {/* 儲存狀態浮動 chip — 取代舊版的「儲存變更」浮鈕，純資訊性 */}
+      {saveState !== 'idle' && (
+        <div
+          className={`save-indicator save-indicator--${saveState}`}
+          role="status"
+          aria-live="polite"
+          data-testid="save-indicator"
+        >
+          {saveState === 'saving' ? '儲存中…' : '✓ 已儲存'}
+        </div>
+      )}
 
       <BackToTop />
 

@@ -974,6 +974,35 @@ header h1 {
   }
 }
 
+/* 自動儲存狀態浮動 chip — 取代舊版「儲存變更」按鈕，純資訊性 */
+.save-indicator {
+  position: fixed;
+  bottom: 76px;   /* 留空間給 BackToTop FAB */
+  right: 20px;
+  padding: 6px 14px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 500;
+  box-shadow: var(--shadow-sm, 0 2px 8px rgba(0,0,0,0.12));
+  z-index: 90;
+  pointer-events: none;
+  animation: save-indicator-in 0.18s ease;
+}
+.save-indicator--saving {
+  background: var(--bg-surface);
+  color: var(--text-secondary);
+  border: 1px solid var(--border-color);
+}
+.save-indicator--saved {
+  background: var(--color-state-1-glow, rgba(13, 148, 136, 0.15));
+  color: var(--color-state-1, #0d9488);
+  border: 1px solid var(--color-state-1, #0d9488);
+}
+@keyframes save-indicator-in {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
 /* 返回最上層 FAB */
 .back-to-top {
   position: fixed;
