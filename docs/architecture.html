@@ -1,0 +1,588 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<title>IMAS Song Familiarity — 架構 / API / 流程</title>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<style>
+  :root {
+    --bg: #fafafa;
+    --panel: #ffffff;
+    --border: #e5e7eb;
+    --text: #1f2937;
+    --muted: #6b7280;
+    --accent: #92cfbb;
+    --get: #10b981;
+    --post: #f59e0b;
+    --auth: #ef4444;
+    --code-bg: #f3f4f6;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, "Segoe UI", "Microsoft JhengHei", sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.6;
+  }
+  .container { max-width: 1200px; margin: 0 auto; padding: 32px 24px; }
+  h1 {
+    font-size: 28px;
+    border-left: 6px solid var(--accent);
+    padding-left: 12px;
+    margin-bottom: 8px;
+  }
+  .subtitle { color: var(--muted); margin-bottom: 32px; }
+  h2 {
+    font-size: 22px;
+    margin-top: 48px;
+    padding-bottom: 8px;
+    border-bottom: 2px solid var(--border);
+  }
+  h3 { font-size: 16px; margin-top: 24px; }
+  .panel {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 24px;
+    margin: 16px 0;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+  }
+  .mermaid { text-align: center; }
+
+  /* Stats */
+  .stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 12px;
+    margin-bottom: 32px;
+  }
+  .stat {
+    background: var(--panel);
+    padding: 16px;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    text-align: center;
+  }
+  .stat-num { font-size: 28px; font-weight: 700; color: var(--accent); }
+  .stat-label { font-size: 12px; color: var(--muted); margin-top: 4px; }
+
+  /* API cards */
+  .api-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
+    gap: 14px;
+  }
+  .api-card {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px;
+  }
+  .api-head {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 10px;
+    flex-wrap: wrap;
+  }
+  .method {
+    font-family: monospace;
+    font-size: 11px;
+    font-weight: 700;
+    padding: 3px 8px;
+    border-radius: 4px;
+    color: white;
+  }
+  .method.GET { background: var(--get); }
+  .method.POST { background: var(--post); }
+  .path {
+    font-family: "SF Mono", Consolas, monospace;
+    font-size: 13px;
+    font-weight: 600;
+  }
+  .badge-auth {
+    background: var(--auth);
+    color: white;
+    font-size: 10px;
+    padding: 2px 6px;
+    border-radius: 3px;
+    font-weight: 600;
+  }
+  .api-desc { font-size: 13px; color: var(--muted); margin: 6px 0 10px; }
+  .api-io {
+    font-size: 12px;
+    background: var(--code-bg);
+    padding: 8px 10px;
+    border-radius: 6px;
+    font-family: "SF Mono", Consolas, monospace;
+    margin-top: 6px;
+    overflow-x: auto;
+  }
+  .api-io strong { color: var(--text); font-family: -apple-system, sans-serif; }
+
+  /* Legend */
+  .legend {
+    display: flex;
+    gap: 16px;
+    font-size: 12px;
+    color: var(--muted);
+    margin-bottom: 16px;
+    flex-wrap: wrap;
+  }
+  .legend-item { display: flex; align-items: center; gap: 6px; }
+  .dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
+
+  /* Flow tabs */
+  .tabs {
+    display: flex;
+    gap: 4px;
+    border-bottom: 2px solid var(--border);
+    margin-bottom: 16px;
+    flex-wrap: wrap;
+  }
+  .tab {
+    padding: 8px 14px;
+    cursor: pointer;
+    border: none;
+    background: none;
+    font-size: 14px;
+    color: var(--muted);
+    border-bottom: 2px solid transparent;
+    margin-bottom: -2px;
+    font-family: inherit;
+  }
+  .tab.active { color: var(--text); border-bottom-color: var(--accent); font-weight: 600; }
+  .tab-content { display: none; }
+  .tab-content.active { display: block; }
+
+  code {
+    background: var(--code-bg);
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-family: "SF Mono", Consolas, monospace;
+    font-size: 12px;
+  }
+  footer {
+    margin-top: 60px;
+    padding-top: 20px;
+    border-top: 1px solid var(--border);
+    color: var(--muted);
+    font-size: 12px;
+    text-align: center;
+  }
+</style>
+</head>
+<body>
+<div class="container">
+
+<h1>IMAS Song Familiarity Hub</h1>
+<div class="subtitle">Next.js 全端 App — 偶大歌曲熟悉度紀錄 / 多人協作 / 公開歌單</div>
+
+<div class="stats">
+  <div class="stat"><div class="stat-num">2,560</div><div class="stat-label">已爬取歌曲</div></div>
+  <div class="stat"><div class="stat-num">9</div><div class="stat-label">API Endpoints</div></div>
+  <div class="stat"><div class="stat-num">4</div><div class="stat-label">前端頁面</div></div>
+  <div class="stat"><div class="stat-num">5</div><div class="stat-label">資料表</div></div>
+  <div class="stat"><div class="stat-num">10</div><div class="stat-label">品牌分類</div></div>
+</div>
+
+<!-- ============ ARCHITECTURE ============ -->
+<h2>1. 系統架構</h2>
+<div class="panel">
+<div class="mermaid">
+flowchart TB
+  subgraph Browser["🌐 使用者瀏覽器"]
+    UI["Next.js 前端 (React 19)<br/>app/page.tsx · /collab · /playlist/[code]"]
+    LocalStore["LocalStorage<br/>(訪客模式暫存)"]
+    UI <--> LocalStore
+  end
+
+  subgraph Server["⚡ Next.js Server (Node 24)"]
+    direction TB
+    APIs["API Routes<br/>(app/api/*)"]
+    NextAuth["NextAuth v4<br/>Credentials + JWT"]
+    PrismaORM["Prisma Client"]
+    APIs --> PrismaORM
+    APIs --> NextAuth
+    NextAuth --> PrismaORM
+  end
+
+  subgraph Storage["💾 本機資料層"]
+    DB[("SQLite<br/>prisma/dev.db")]
+    ColorsJSON[/"idol-colors.json<br/>(靜態檔)"/]
+    CSV[/"pitch_data.csv<br/>(可選)"/]
+  end
+
+  subgraph Scraper["🕷️ 離線爬蟲 (CLI)"]
+    ScrapeJS["scripts/scrape.ts<br/>axios + cheerio + p-limit(15)"]
+    External["fujiwarahaji.me<br/>(外部資料源)"]
+    ScrapeJS -->|抓 HTML| External
+  end
+
+  Browser -->|HTTP| APIs
+  PrismaORM <--> DB
+  APIs -->|讀靜態| ColorsJSON
+  ScrapeJS -->|寫入| DB
+  ScrapeJS -.讀.-> CSV
+
+  classDef browser fill:#dbeafe,stroke:#3b82f6
+  classDef server fill:#fef3c7,stroke:#f59e0b
+  classDef storage fill:#d1fae5,stroke:#10b981
+  classDef scraper fill:#fce7f3,stroke:#ec4899
+  class Browser,UI,LocalStore browser
+  class Server,APIs,NextAuth,PrismaORM server
+  class Storage,DB,ColorsJSON,CSV storage
+  class Scraper,ScrapeJS,External scraper
+</div>
+</div>
+
+<!-- ============ DATA MODEL ============ -->
+<h2>2. 資料模型 (Prisma Schema)</h2>
+<div class="panel">
+<div class="mermaid">
+erDiagram
+  User ||--o{ UserSelection : "標記"
+  Song ||--o{ UserSelection : "被標記"
+  Song ||--o{ SongMember : "包含"
+  Member ||--o{ SongMember : "演唱"
+
+  User {
+    string id PK
+    string username UK
+    string password "bcrypt"
+    string nickname
+    string shareCode UK "SHA-256 截 16"
+    string themeColor "#92cfbb"
+    boolean isPublic
+    datetime createdAt
+    datetime updatedAt
+  }
+  Song {
+    string id PK
+    string slug UK "MD5(brand/id)"
+    string title
+    string brand "music_ml/cg/sidem..."
+    string musicType "solo / unit"
+    string lyrics "作詞"
+    string composer "作曲"
+    string arranger "編曲"
+    string lowestPitch
+    string highestPitch
+  }
+  Member {
+    string id PK
+    string name UK "偶像姓名"
+    string cvName "聲優"
+  }
+  SongMember {
+    string songId FK
+    string memberId FK
+  }
+  UserSelection {
+    string userId FK
+    string songId FK
+    int familiarity "1=會唱 2=常聽 3=有聽過 4=不太記得"
+    datetime updatedAt
+  }
+</div>
+</div>
+
+<!-- ============ APIs ============ -->
+<h2>3. API 端點 (9 個)</h2>
+<div class="legend">
+  <div class="legend-item"><span class="dot" style="background:var(--get)"></span>GET</div>
+  <div class="legend-item"><span class="dot" style="background:var(--post)"></span>POST</div>
+  <div class="legend-item"><span class="dot" style="background:var(--auth)"></span>需登入</div>
+</div>
+
+<div class="api-grid">
+
+  <div class="api-card">
+    <div class="api-head"><span class="method POST">POST</span><span class="path">/api/auth/register</span></div>
+    <div class="api-desc">註冊新帳號，bcrypt 雜湊密碼，產生 SHA-256 shareCode</div>
+    <div class="api-io"><strong>Body:</strong> { username, password, nickname }<br/><strong>200:</strong> { id, username, nickname, shareCode }</div>
+  </div>
+
+  <div class="api-card">
+    <div class="api-head"><span class="method GET">GET</span><span class="method POST">POST</span><span class="path">/api/auth/[...nextauth]</span></div>
+    <div class="api-desc">NextAuth 通用處理器 (登入 / 登出 / session / callback)</div>
+    <div class="api-io"><strong>策略:</strong> Credentials Provider + JWT session</div>
+  </div>
+
+  <div class="api-card">
+    <div class="api-head"><span class="method GET">GET</span><span class="path">/api/songs?schema=v2</span></div>
+    <div class="api-desc">取得全部歌曲 (含 members[].id + units)。Schema 仍在迭代，所以不走快取，每次直出。</div>
+    <div class="api-io"><strong>200:</strong> Song[] (含 members + units)<br/><strong>Cache:</strong> no-store</div>
+  </div>
+
+  <div class="api-card">
+    <div class="api-head"><span class="method GET">GET</span><span class="path">/api/songs/[id]/users</span></div>
+    <div class="api-desc">某首歌「會唱／常聽」的公開使用者清單</div>
+    <div class="api-io"><strong>條件:</strong> familiarity ∈ {1,2} AND user.isPublic = true<br/><strong>200:</strong> { nickname, themeColor, familiarity }[]</div>
+  </div>
+
+  <div class="api-card">
+    <div class="api-head"><span class="method GET">GET</span><span class="path">/api/selections</span><span class="badge-auth">AUTH</span></div>
+    <div class="api-desc">取得目前使用者所有熟悉度標記 (轉成 map)</div>
+    <div class="api-io"><strong>200:</strong> { songId: familiarity, ... }<br/><strong>401:</strong> 未登入</div>
+  </div>
+
+  <div class="api-card">
+    <div class="api-head"><span class="method POST">POST</span><span class="path">/api/selections</span><span class="badge-auth">AUTH</span></div>
+    <div class="api-desc">批次 upsert / delete (familiarity=0 即刪除)。用 Prisma transaction 保證原子性。</div>
+    <div class="api-io"><strong>Body:</strong> [{ songId, familiarity }, ...]<br/><strong>200:</strong> { success: true }</div>
+  </div>
+
+  <div class="api-card">
+    <div class="api-head"><span class="method POST">POST</span><span class="path">/api/collab</span></div>
+    <div class="api-desc">多人歌單聯集：取得 N 個 shareCode 任一人標記過的歌 (前端再用 chip 二次篩選)</div>
+    <div class="api-io"><strong>Body:</strong> { shareCodes: string[] }（至少 2 個）<br/><strong>200:</strong> { users: nickname[], songs: Song & { ratings } }</div>
+  </div>
+
+  <div class="api-card">
+    <div class="api-head"><span class="method GET">GET</span><span class="path">/api/user/search?q=</span></div>
+    <div class="api-desc">依 nickname 模糊搜尋公開使用者 (大小寫通用，上限 50 筆；空 q 回所有公開使用者)</div>
+    <div class="api-io"><strong>Query:</strong> ?q=暱稱 (可空)<br/><strong>200:</strong> { nickname, shareCode, themeColor }[]</div>
+  </div>
+
+  <div class="api-card">
+    <div class="api-head"><span class="method POST">POST</span><span class="path">/api/user/settings</span><span class="badge-auth">AUTH</span></div>
+    <div class="api-desc">更新暱稱、主題色 (#RRGGBB)、是否公開</div>
+    <div class="api-io"><strong>Body:</strong> { nickname, themeColor, isPublic }<br/><strong>200:</strong> 更新後的欄位</div>
+  </div>
+
+  <div class="api-card">
+    <div class="api-head"><span class="method GET">GET</span><span class="path">/api/colors</span></div>
+    <div class="api-desc">讀取靜態 idol-colors.json (偶像代表色清單)</div>
+    <div class="api-io"><strong>200:</strong> { name, color }[]</div>
+  </div>
+
+</div>
+
+<!-- ============ FLOWS ============ -->
+<h2>4. 主要流程</h2>
+
+<div class="tabs">
+  <button class="tab active" onclick="showTab(event, 'flow1')">A. 訪客標記 / 註冊</button>
+  <button class="tab" onclick="showTab(event, 'flow2')">B. 登入後雙軌儲存</button>
+  <button class="tab" onclick="showTab(event, 'flow3')">C. 共同歌單聯集</button>
+  <button class="tab" onclick="showTab(event, 'flow4')">D. 公開歌單分享</button>
+  <button class="tab" onclick="showTab(event, 'flow5')">E. 爬蟲增量更新</button>
+</div>
+
+<div id="flow1" class="tab-content active panel">
+<h3>訪客 → 註冊 → 登入</h3>
+<div class="mermaid">
+sequenceDiagram
+  participant U as 訪客
+  participant P as page.tsx
+  participant LS as LocalStorage
+  participant API as /api/auth/register
+  participant NA as NextAuth
+  participant DB as Prisma/SQLite
+
+  U->>P: 開啟首頁
+  P->>P: GET /api/songs?schema=v2 (no-store)
+  P->>LS: 讀 guest_selections
+  U->>P: 點「會唱」標記
+  Note over P,LS: 500ms debounce 後自動寫
+  P->>LS: 寫 guest_selections
+  U->>P: 點「註冊」
+  P->>API: POST {username,pw,nickname}
+  API->>API: bcrypt.hash + SHA256(shareCode)
+  API->>DB: User.create
+  DB-->>API: { id, shareCode }
+  API-->>P: 201
+  P->>NA: signIn('credentials')
+  NA->>DB: 驗證 + JWT
+  NA-->>P: session
+  P->>LS: 讀本機暫存
+  P->>API: POST /api/selections (批次)
+  P->>LS: 清空 guest_selections
+</div>
+</div>
+
+<div id="flow2" class="tab-content panel">
+<h3>登入後：雙軌儲存 + debounce 自動同步 (500ms)</h3>
+<div class="mermaid">
+flowchart TB
+  Click["使用者點熟悉度按鈕"] --> Update["setSelections(songId → 1~4)<br/>setUnsavedChanges(+1)"]
+  Update --> Debounce{"debounce 500ms<br/>(連點會合併)"}
+  Update --> BU["beforeunload 警告<br/>(離開時還沒寫出去)"]
+  Debounce -->|時間到| Save["triggerSave()<br/>setSaveState('saving')"]
+  Save --> Auth{"登入?"}
+  Auth -->|是| Cloud["POST /api/selections<br/>批次 transaction"]
+  Auth -->|否| Local["寫 LocalStorage<br/>guest_selections"]
+  Cloud --> DB[("UserSelection 表<br/>familiarity=0 → delete<br/>1~4 → upsert")]
+  Cloud --> Done["清空 unsavedChanges<br/>setSaveState('saved') → 1.5s → 'idle'"]
+  Local --> Done
+
+  classDef auth fill:#fee2e2,stroke:#ef4444
+  classDef guest fill:#dbeafe,stroke:#3b82f6
+  class Cloud,DB auth
+  class Local guest
+</div>
+</div>
+
+<div id="flow3" class="tab-content panel">
+<h3>共同歌單聯集 + 二次篩選 (/collab)</h3>
+<div class="mermaid">
+sequenceDiagram
+  participant U as 使用者
+  participant Page as /collab page
+  participant Search as /api/user/search
+  participant Collab as /api/collab
+  participant DB as Prisma/SQLite
+
+  U->>Page: focus 輸入框 (或輸入字串)
+  Page->>Search: GET ?q= (q 可空 → 列全部公開使用者)
+  Search->>DB: User.findMany (isPublic=true, contains insensitive)
+  DB-->>Search: 候選名單 (≤50)
+  Search-->>Page: [{ nickname, shareCode, color }]
+  U->>Page: 選擇 ≥2 人 + 送出
+  Page->>Collab: POST { shareCodes:[...] }
+  Collab->>DB: 取 N 個 User
+  Collab->>DB: UserSelection (userId IN, fam 1~4)
+  Collab->>Collab: 計算聯集 (任一人標過即出現)
+  Collab-->>Page: { users, songs[ratings] }
+  Page->>Page: 三排 chip 二次篩選<br/>(依使用者 / 依熟悉度 / 依品牌)
+  Page->>U: 顯示過濾後歌單
+</div>
+</div>
+
+<div id="flow4" class="tab-content panel">
+<h3>公開歌單分享 (/playlist/[shareCode])</h3>
+<div class="mermaid">
+flowchart LR
+  Owner["歌單擁有者"] -->|個人設定| Settings["POST /api/user/settings<br/>isPublic=true"]
+  Settings --> DB[("User.isPublic")]
+  Owner -->|複製連結| URL["/playlist/abc123def456"]
+  URL --> Visitor["分享給朋友"]
+  Visitor -->|開啟連結| PageS["/playlist/[shareCode]<br/>page.tsx (Server Component)"]
+  PageS -->|prisma 直查| DB
+  DB -->|User + selections + songs| PageS
+  PageS --> HTML["渲染靜態頁面<br/>顯示對方歌單"]
+  HTML --> Visitor
+</div>
+</div>
+
+<div id="flow5" class="tab-content panel">
+<h3>爬蟲增量更新 (CLI)</h3>
+<div class="mermaid">
+sequenceDiagram
+  participant Dev as 開發者
+  participant CLI as scripts/scrape.ts
+  participant DB as Prisma/SQLite
+  participant Site as fujiwarahaji.me
+  participant Sheet as data/pitch_data.csv
+
+  Dev->>CLI: npx ts-node scripts/scrape.ts
+  CLI->>Site: GET /sitemap/musiclist
+  Site-->>CLI: HTML (2560 首歌列表)
+  CLI->>CLI: cheerio 解析 + MD5(brand/id) = slug
+  CLI->>DB: SELECT slug FROM Song
+  DB-->>CLI: 已存在 slug 集合
+  CLI->>CLI: 過濾出全新歌曲
+  par 並行 15 條
+    CLI->>Site: GET /music/.../[id] × N
+    Site-->>CLI: 詳情頁 HTML
+  end
+  CLI->>CLI: 解析作詞/作曲/編曲/成員/CV
+  CLI->>DB: Song.create + Member.upsert + SongMember.upsert<br/>(循序寫入避免 SQLite 鎖)
+  CLI->>Sheet: 讀 CSV (若存在)
+  CLI->>DB: 更新 lowestPitch/highestPitch
+  CLI-->>Dev: 完成
+</div>
+</div>
+
+<!-- ============ STACK ============ -->
+<h2>5. 技術棧</h2>
+<div class="panel">
+<div class="mermaid">
+flowchart LR
+  subgraph Frontend["Frontend"]
+    R["React 19.2.4"]
+    N["Next.js 16.2.6<br/>(App Router + Turbopack)"]
+    NA["next-auth v4 (Client)"]
+  end
+  subgraph Backend["Backend (API Routes)"]
+    NS["Next.js Server"]
+    NAS["NextAuth (Server)"]
+    Prisma["Prisma 5.22 ORM"]
+    BCrypt["bcryptjs"]
+  end
+  subgraph DataLayer["Data"]
+    SQLite[("SQLite<br/>dev.db")]
+    JSON[/"idol-colors.json"/]
+  end
+  subgraph Scraping["Scraping (CLI)"]
+    Axios["axios"]
+    Cheerio["cheerio"]
+    PLimit["p-limit (15)"]
+  end
+  subgraph Test["Test"]
+    Vitest["vitest"]
+    RTL["@testing-library/react"]
+    JSDom["jsdom"]
+  end
+
+  R --> N --> NS
+  NA --> NAS
+  NS --> Prisma --> SQLite
+  NAS --> Prisma
+  NAS --> BCrypt
+  NS --> JSON
+  Axios --> Cheerio --> PLimit --> Prisma
+</div>
+</div>
+
+<!-- ============ FILE STRUCTURE ============ -->
+<h2>6. 主要檔案結構</h2>
+<div class="panel">
+<pre style="font-family:'SF Mono',Consolas,monospace;font-size:12px;line-height:1.7;margin:0;">
+imas-song-familiarity/
+├─ app/
+│  ├─ page.tsx                 → 主控台 (篩選/標記/雙軌儲存)
+│  ├─ layout.tsx               → 全域 layout (含 SessionProvider)
+│  ├─ globals.css              → Sleek Space 全域樣式
+│  ├─ collab/page.tsx          → 共同歌單頁
+│  ├─ playlist/[shareCode]/page.tsx → 公開歌單頁
+│  └─ api/                     → 9 個 API endpoint
+├─ components/
+│  ├─ BrandIcon.tsx            → 品牌 icon
+│  ├─ MemberToggle.tsx         → 成員展開/收合
+│  └─ Providers.tsx            → SessionProvider 包裝
+├─ lib/
+│  ├─ prisma.ts                → Prisma singleton
+│  ├─ auth.ts                  → NextAuth 設定 (Credentials/JWT)
+│  └─ themeUtils.ts            → 主題色衍生計算
+├─ prisma/
+│  ├─ schema.prisma            → 5 個 model
+│  ├─ migrations/              → DB 版本
+│  └─ dev.db                   → SQLite 檔
+└─ scripts/
+   ├─ scrape.ts                → 爬蟲主程式
+   ├─ scrape-colors.ts         → 偶像代表色爬蟲
+   ├─ get-brand-icons.ts       → 品牌 icon
+   └─ update-pitches.ts        → 音域更新
+</pre>
+</div>
+
+<footer>
+本文件由本機程式碼自動掃描產生 · 2026-05-20
+</footer>
+
+</div>
+
+<script>
+  mermaid.initialize({ startOnLoad: true, theme: 'default', securityLevel: 'loose' });
+  function showTab(e, id) {
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+    e.currentTarget.classList.add('active');
+    document.getElementById(id).classList.add('active');
+  }
+</script>
+</body>
+</html>

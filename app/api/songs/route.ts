@@ -10,6 +10,11 @@ export async function GET() {
             member: true,
           },
         },
+        units: {
+          include: {
+            unit: true,
+          },
+        },
       },
       orderBy: {
         title: 'asc',
@@ -29,17 +34,25 @@ export async function GET() {
       lowestPitch: song.lowestPitch,
       highestPitch: song.highestPitch,
       members: song.members.map((m) => ({
+        id: m.member.id,
         name: m.member.name,
         cvName: m.member.cvName,
       })),
+      units: song.units.map((su) => ({
+        id: su.unit.id,
+        name: su.unit.name,
+      })),
     }));
 
-    // 設定快取控制，快取 1 小時以增進讀取速度
+    // schema 仍在迭代（members[].id、units 等都是後加的），任何 max-age 都可能讓
+    // 已升級的前端拿到 cache 住的舊 shape，結果就是篩選全部過濾掉變 0 筆。
+    // 改成 no-store：每次都從 DB 直出，避免任何中間層 cache 卡到。
     return new NextResponse(JSON.stringify(formattedSongs), {
       status: 200,
       headers: {
         'Content-Type': 'application/json',
-        'Cache-Control': 'public, max-age=3600, stale-while-revalidate=600',
+        'Cache-Control': 'no-store',
+        'X-Songs-Schema': 'v2-with-units',
       },
     });
   } catch (error: any) {

@@ -32,16 +32,55 @@ model Song {
   lowestPitch  String?
   highestPitch String?
   members      SongMember[]
+  units        SongUnit[]
   selections   UserSelection[]
 
   @@index([brand])
 }
 
 model Member {
-  id     String       @id @default(uuid())
-  name   String       @unique
-  cvName String?
-  songs  SongMember[]
+  id         String       @id @default(uuid())
+  name       String       @unique
+  cvName     String?
+  taxId      Int?         @unique
+  kana       String?
+  cvKana     String?
+  production String?      // cg | 765 | sc | 315 | gakuen | hatsuboshi | 876
+  songs      SongMember[]
+  units      UnitMember[]
+
+  @@index([production])
+}
+
+model Unit {
+  id         String       @id @default(uuid())
+  taxId      Int          @unique
+  name       String
+  kana       String?
+  production String?      // 派生：成員 production；跨 IP 為 "mixed"
+  members    UnitMember[]
+  songs      SongUnit[]
+
+  @@index([production])
+  @@index([name])
+}
+
+model UnitMember {
+  unitId   String
+  memberId String
+  unit     Unit   @relation(fields: [unitId], references: [id], onDelete: Cascade)
+  member   Member @relation(fields: [memberId], references: [id], onDelete: Cascade)
+
+  @@id([unitId, memberId])
+}
+
+model SongUnit {
+  songId String
+  unitId String
+  song   Song @relation(fields: [songId], references: [id], onDelete: Cascade)
+  unit   Unit @relation(fields: [unitId], references: [id], onDelete: Cascade)
+
+  @@id([songId, unitId])
 }
 
 model SongMember {
