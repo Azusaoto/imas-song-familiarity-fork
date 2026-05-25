@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 
+export const revalidate = 3600; // 快取 1 小時，避免 Next.js build 時資料庫還沒資料就被永久快取成空陣列
+
 export async function GET() {
   try {
     const members = await prisma.member.findMany({
