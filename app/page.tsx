@@ -4,7 +4,7 @@ import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useSession, signIn, signOut } from 'next-auth/react';
 import MemberToggle from '@/components/MemberToggle';
 import MultiSelect, { MultiSelectOption } from '@/components/MultiSelect';
-import { buildThemeVars, getBrandColor, getBrandDisplayName, getAccentTextColor } from '@/lib/themeUtils';
+import { buildThemeVars, getBrandColor, getBrandDisplayName, getBrandShortName, getAccentTextColor } from '@/lib/themeUtils';
 import { BrandIcon } from '@/components/BrandIcon';
 import { BRAND_VALUES } from '@/lib/brandMap';
 import { useBrandFilter } from '@/lib/useBrandFilter';
@@ -268,6 +268,7 @@ export default function SongFamiliarityHub() {
       BRAND_VALUES.map((b) => ({
         id: b,
         label: getBrandDisplayName(b),
+        shortLabel: getBrandShortName(b),
       })),
     [],
   );

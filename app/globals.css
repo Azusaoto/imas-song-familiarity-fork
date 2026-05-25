@@ -418,6 +418,19 @@ header h1 {
   font-size: 14px;
 }
 
+.multiselect-label-short {
+  display: none;
+}
+
+@media (max-width: 600px) {
+  .multiselect-label-full {
+    display: none;
+  }
+  .multiselect-label-short {
+    display: inline;
+  }
+}
+
 .multiselect-clear {
   position: absolute;
   right: 10px;
