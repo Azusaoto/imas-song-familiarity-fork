@@ -47,6 +47,7 @@ model Member {
   kana       String?
   cvKana     String?
   production String?      // cg | 765 | sc | 315 | gakuen | hatsuboshi | 876
+  color      String?      // 主題代表色 (Hex)
   songs      SongMember[]
   units      UnitMember[]
 
@@ -59,6 +60,7 @@ model Unit {
   name       String
   kana       String?
   production String?      // 派生：成員 production；跨 IP 為 "mixed"
+  color      String?      // 組合代表色 (Hex)
   members    UnitMember[]
   songs      SongUnit[]
 
