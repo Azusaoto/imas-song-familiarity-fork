@@ -8,7 +8,7 @@ generator client {
 }
 
 model User {
-  id         String          @id @default(uuid())
+  id         String          @id @default(uuid()) @db.Uuid
   username   String          @unique
   password   String
   nickname   String
@@ -21,7 +21,7 @@ model User {
 }
 
 model Song {
-  id           String          @id @default(uuid())
+  id           String          @id @default(uuid()) @db.Uuid
   slug         String          @unique // brand/id，例如 "ml/12087"
   title        String
   brand        String
@@ -40,7 +40,7 @@ model Song {
 }
 
 model Member {
-  id         String       @id @default(uuid())
+  id         String       @id @default(uuid()) @db.Uuid
   name       String       @unique
   cvName     String?
   taxId      Int?         @unique
@@ -55,7 +55,7 @@ model Member {
 }
 
 model Unit {
-  id         String       @id @default(uuid())
+  id         String       @id @default(uuid()) @db.Uuid
   taxId      Int          @unique
   name       String
   kana       String?
@@ -69,8 +69,8 @@ model Unit {
 }
 
 model UnitMember {
-  unitId   String
-  memberId String
+  unitId   String @db.Uuid
+  memberId String @db.Uuid
   unit     Unit   @relation(fields: [unitId], references: [id], onDelete: Cascade)
   member   Member @relation(fields: [memberId], references: [id], onDelete: Cascade)
 
@@ -78,8 +78,8 @@ model UnitMember {
 }
 
 model SongUnit {
-  songId String
-  unitId String
+  songId String @db.Uuid
+  unitId String @db.Uuid
   song   Song @relation(fields: [songId], references: [id], onDelete: Cascade)
   unit   Unit @relation(fields: [unitId], references: [id], onDelete: Cascade)
 
@@ -87,8 +87,8 @@ model SongUnit {
 }
 
 model SongMember {
-  songId   String
-  memberId String
+  songId   String @db.Uuid
+  memberId String @db.Uuid
   song     Song   @relation(fields: [songId], references: [id], onDelete: Cascade)
   member   Member @relation(fields: [memberId], references: [id], onDelete: Cascade)
 
@@ -96,8 +96,8 @@ model SongMember {
 }
 
 model UserSelection {
-  userId      String
-  songId      String
+  userId      String @db.Uuid
+  songId      String @db.Uuid
   familiarity Int      // 1=會唱, 2=常聽/只聽, 3=有聽過, 4=不太記得
   updatedAt   DateTime @default(now()) @updatedAt
   user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
