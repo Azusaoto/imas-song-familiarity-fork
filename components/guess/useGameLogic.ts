@@ -31,7 +31,7 @@ export function useGameLogic() {
   }, []);
 
   useEffect(() => {
-    fetch('/api/songs')
+    fetch('/api/songs/guess')
       .then((res) => {
         if (!res.ok) throw new Error('Failed to fetch songs');
         return res.json();
