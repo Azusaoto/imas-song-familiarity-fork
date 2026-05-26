@@ -2,8 +2,10 @@
 
 import React, { useState, useMemo } from 'react';
 import MemberToggle from '@/components/MemberToggle';
-import MultiSelect, { MultiSelectOption } from '@/components/MultiSelect';
-import { BrandIcon } from '@/components/BrandIcon';
+import BrandPicker from '@/components/BrandPicker';
+import IdolPickerModal from '@/components/IdolPickerModal';
+import UnitPickerModal from '@/components/UnitPickerModal';
+import TypePicker from '@/components/TypePicker';
 import { getBrandColor, getBrandDisplayName, getAccentTextColor } from '@/lib/themeUtils';
 import { BRAND_VALUES } from '@/lib/brandMap';
 import { useBrandFilter } from '@/lib/useBrandFilter';
@@ -72,41 +74,16 @@ export default function PlaylistList({ songs, idols, units }: Props) {
     setSelectedUnits,
   });
 
-  const idolOptions = useMemo<MultiSelectOption[]>(
-    () =>
-      filteredIdols.map((i) => ({
-        id: i.id,
-        label: i.name,
-        sublabel: i.cvName ? `(${i.cvName})` : undefined,
-        searchAlias: [i.kana, i.cvName].filter(Boolean).join(' '),
-      })),
-    [filteredIdols],
-  );
-
-  const unitOptions = useMemo<MultiSelectOption[]>(
-    () =>
-      filteredUnits.map((u) => ({
-        id: u.id,
-        label: u.name,
-        sublabel: u.memberCount > 0 ? `(${u.memberCount}人)` : undefined,
-        searchAlias: u.kana ?? undefined,
-      })),
-    [filteredUnits],
-  );
-
-  const brandOptions = useMemo<MultiSelectOption[]>(() => {
-    // 只列實際出現在這份歌單裡的 brand，下拉才不會有一堆空選項
+  // 只列實際出現在這份歌單裡的 brand
+  const presentBrands = useMemo<readonly string[]>(() => {
     const present = new Set(songs.map((s) => s.brand));
-    return BRAND_VALUES.filter((b) => present.has(b)).map((b) => ({
-      id: b,
-      label: getBrandDisplayName(b),
-    }));
+    return BRAND_VALUES.filter((b) => present.has(b));
   }, [songs]);
 
-  const typeOptions = useMemo<MultiSelectOption[]>(
+  const typeOptions = useMemo(
     () => [
-      { id: 'solo', label: 'Solo (單人獨唱)' },
-      { id: 'unit', label: 'Unit (組合 / 合唱)' },
+      { id: 'solo', label: 'Solo', hint: '單人獨唱' },
+      { id: 'unit', label: 'Unit', hint: '組合 / 合唱' },
     ],
     [],
   );
@@ -174,42 +151,34 @@ export default function PlaylistList({ songs, idols, units }: Props) {
             </span>
           )}
         </div>
-        <MultiSelect
-          options={brandOptions}
+        <BrandPicker
+          options={presentBrands}
           value={selectedBrands}
           onChange={handleBrandsChange}
           placeholder="所有偶像團體"
-          searchPlaceholder="搜尋品牌..."
-          leftIcon={
-            <BrandIcon
-              brand={selectedBrands[0] ?? 'all'}
-              className="brand-select-icon"
-            />
-          }
           className="ms-brand"
         />
-        <MultiSelect
-          options={idolOptions}
+        <IdolPickerModal
+          allIdols={idols}
           value={selectedIdols}
           onChange={setSelectedIdols}
-          placeholder={`偶像 (${idolOptions.length})`}
-          searchPlaceholder="搜尋偶像名 / CV / 假名..."
+          selectedBrands={selectedBrands}
+          placeholder={`偶像 (${filteredIdols.length})`}
           className="ms-idol"
         />
-        <MultiSelect
-          options={unitOptions}
+        <UnitPickerModal
+          allUnits={units}
           value={selectedUnits}
           onChange={setSelectedUnits}
-          placeholder={`組合 (${unitOptions.length})`}
-          searchPlaceholder="搜尋組合名..."
+          selectedBrands={selectedBrands}
+          placeholder={`組合 (${filteredUnits.length})`}
           className="ms-unit"
         />
-        <MultiSelect
+        <TypePicker
           options={typeOptions}
           value={selectedTypes}
           onChange={setSelectedTypes}
           placeholder="歌曲類型"
-          searchPlaceholder=""
           className="ms-type"
         />
       </section>

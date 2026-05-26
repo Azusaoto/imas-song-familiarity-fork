@@ -3,8 +3,12 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useSession, signIn, signOut } from 'next-auth/react';
 import MemberToggle from '@/components/MemberToggle';
-import MultiSelect, { MultiSelectOption } from '@/components/MultiSelect';
-import { buildThemeVars, getBrandColor, getBrandDisplayName, getBrandShortName, getAccentTextColor } from '@/lib/themeUtils';
+// MultiSelect / MultiSelectOption 已被 BrandPicker / IdolPickerModal / UnitPickerModal / TypePicker 取代
+import BrandPicker from '@/components/BrandPicker';
+import IdolPickerModal from '@/components/IdolPickerModal';
+import UnitPickerModal from '@/components/UnitPickerModal';
+import TypePicker from '@/components/TypePicker';
+import { buildThemeVars, getBrandColor, getBrandDisplayName, getAccentTextColor } from '@/lib/themeUtils';
 import { BrandIcon } from '@/components/BrandIcon';
 import { BRAND_VALUES } from '@/lib/brandMap';
 import { useBrandFilter } from '@/lib/useBrandFilter';
@@ -129,6 +133,7 @@ export default function SongFamiliarityHub() {
   const [defsOpen, setDefsOpen] = useState(true);
   useEffect(() => {
     if (typeof window === 'undefined') return;
+    if (typeof window.matchMedia !== 'function') return; // jsdom safety
     if (window.matchMedia('(max-width: 600px)').matches) setDefsOpen(false);
   }, []);
 
@@ -242,41 +247,13 @@ export default function SongFamiliarityHub() {
     setSelectedUnits,
   });
 
-  const idolOptions = useMemo<MultiSelectOption[]>(
-    () =>
-      filteredIdols.map((i) => ({
-        id: i.id,
-        label: i.name,
-        sublabel: i.cvName ? `(${i.cvName})` : undefined,
-        searchAlias: [i.kana, i.cvName].filter(Boolean).join(' '),
-      })),
-    [filteredIdols],
-  );
+  // brand / idol / unit options 已分別由 BrandPicker / IdolPickerModal / UnitPickerModal 內部處理
 
-  const unitOptions = useMemo<MultiSelectOption[]>(
-    () =>
-      filteredUnits.map((u) => ({
-        id: u.id,
-        label: u.name,
-        sublabel: u.memberCount > 0 ? `(${u.memberCount}人)` : undefined,
-        searchAlias: u.kana ?? undefined,
-      })),
-    [filteredUnits],
-  );
-  const brandOptions = useMemo<MultiSelectOption[]>(
-    () =>
-      BRAND_VALUES.map((b) => ({
-        id: b,
-        label: getBrandDisplayName(b),
-        shortLabel: getBrandShortName(b),
-      })),
-    [],
-  );
-
-  const typeOptions = useMemo<MultiSelectOption[]>(
+  // 歌曲類型靜態 2 選項給 TypePicker 用
+  const typeOptions = useMemo(
     () => [
-      { id: 'solo', label: 'Solo (單人獨唱)' },
-      { id: 'unit', label: 'Unit (組合 / 合唱)' },
+      { id: 'solo', label: 'Solo', hint: '單人獨唱' },
+      { id: 'unit', label: 'Unit', hint: '組合 / 合唱' },
     ],
     [],
   );
@@ -697,42 +674,34 @@ export default function SongFamiliarityHub() {
               </span>
             )}
           </div>
-          <MultiSelect
-            options={brandOptions}
+          <BrandPicker
+            options={BRAND_VALUES}
             value={selectedBrands}
             onChange={handleBrandsChange}
             placeholder="所有偶像團體"
-            searchPlaceholder="搜尋品牌..."
-            leftIcon={
-              <BrandIcon
-                brand={selectedBrands[0] ?? 'all'}
-                className="brand-select-icon"
-              />
-            }
             className="ms-brand"
           />
-          <MultiSelect
-            options={idolOptions}
+          <IdolPickerModal
+            allIdols={allIdols}
             value={selectedIdols}
             onChange={setSelectedIdols}
-            placeholder={`偶像 (${idolOptions.length})`}
-            searchPlaceholder="搜尋偶像名 / CV / 假名..."
+            selectedBrands={selectedBrands}
+            placeholder={`偶像 (${filteredIdols.length})`}
             className="ms-idol"
           />
-          <MultiSelect
-            options={unitOptions}
+          <UnitPickerModal
+            allUnits={allUnits}
             value={selectedUnits}
             onChange={setSelectedUnits}
-            placeholder={`組合 (${unitOptions.length})`}
-            searchPlaceholder="搜尋組合名..."
+            selectedBrands={selectedBrands}
+            placeholder={`組合 (${filteredUnits.length})`}
             className="ms-unit"
           />
-          <MultiSelect
+          <TypePicker
             options={typeOptions}
             value={selectedTypes}
             onChange={setSelectedTypes}
             placeholder="歌曲類型"
-            searchPlaceholder=""
             className="ms-type"
           />
         </section>
@@ -994,6 +963,10 @@ export default function SongFamiliarityHub() {
       <SongDetailModal
         song={selectedSong}
         onClose={() => setSelectedSong(null)}
+        currentFamiliarity={selectedSong ? (selections[selectedSong.id] || 0) : 0}
+        onSelectFamiliarity={(fam) => {
+          if (selectedSong) handleSelect(selectedSong.id, fam);
+        }}
       />
 
       {/* 登入彈出視窗 */}
