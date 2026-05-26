@@ -23,6 +23,7 @@ export default function GameClient() {
     startGame,
     handleOptionClick,
     handleNext,
+    handleVideoError,
     useElimination,
     useSameBrand,
   } = useGameLogic();
@@ -130,7 +131,7 @@ export default function GameClient() {
 
       <div style={{ width: '100%', maxWidth: '672px', margin: '0 auto', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
         <div style={{ width: '100%', backgroundColor: 'rgba(0, 0, 0, 0.05)', padding: '8px', borderRadius: '32px', border: '1px solid var(--border-color)', backdropFilter: 'blur(4px)' }}>
-          <YoutubePlayer videoId={videoId} showVideo={isAnswered} />
+          <YoutubePlayer videoId={videoId} showVideo={isAnswered} onError={handleVideoError} />
         </div>
       </div>
 

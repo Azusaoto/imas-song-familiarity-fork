@@ -81,6 +81,13 @@ export function useGameLogic() {
     generateQuestion();
   };
 
+  // YouTube 影片無法播放時（版權限制、下架等），自動靜默跳下一題
+  const handleVideoError = useCallback(() => {
+    if (gameState === 'playing') {
+      generateQuestion();
+    }
+  }, [gameState, generateQuestion]);
+
   const handleOptionClick = (optionId: string) => {
     if (gameState !== 'playing' || eliminatedOptions.includes(optionId)) return;
     
@@ -162,6 +169,7 @@ export function useGameLogic() {
     startGame,
     handleOptionClick,
     handleNext: generateQuestion,
+    handleVideoError,
     useElimination,
     useSameBrand
   };
