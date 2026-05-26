@@ -1,0 +1,26 @@
+<h2>遊戲模式設計：哪種挑戰最吸引人？</h2>
+<p class="subtitle">我們可以先實作一種核心挑戰，再逐步擴充</p>
+
+<div class="options">
+  <div class="option" data-choice="endless" onclick="toggleSelect(this)">
+    <div class="letter">A</div>
+    <div class="content">
+      <h3>無盡挑戰 (Survival)</h3>
+      <p>答錯就結束。看你能連續答對幾題，並以此結算分數排榜。</p>
+    </div>
+  </div>
+  <div class="option" data-choice="time_attack" onclick="toggleSelect(this)">
+    <div class="letter">B</div>
+    <div class="content">
+      <h3>時限挑戰 (Time Attack)</h3>
+      <p>固定時間（如 60 秒）內看能答對幾題。答對增加少量時間，答錯不結束但扣時。</p>
+    </div>
+  </div>
+  <div class="option" data-choice="campaign" onclick="toggleSelect(this)">
+    <div class="letter">C</div>
+    <div class="content">
+      <h3>關卡模式 (Level Based)</h3>
+      <p>由易到難，例如第一關 4 選 1，之後選項增加或音訊長度變短。</p>
+    </div>
+  </div>
+</div>

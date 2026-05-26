@@ -1,0 +1,89 @@
+<h2>猜歌系統 (Song Guessing Game) 設計規格書</h2>
+<p class="subtitle">目標：打造與主站風格 100% 整合的互動遊戲</p>
+
+<div class="section">
+  <h3>1. 遊戲核心：無盡挑戰 (Survival Mode)</h3>
+  <div class="cards">
+    <div class="card">
+      <div class="card-body">
+        <h4>單局流程</h4>
+        <ul>
+          <li><strong>抽選：</strong>1 題答案 + 3 題干擾（共 4 選項）。</li>
+          <li><strong>播放：</strong>播放 YouTube 音訊，遮蔽畫面。</li>
+          <li><strong>判定：</strong>正確則連勝 (+1) 並續關；錯誤則遊戲結束進入結算。</li>
+        </ul>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-body">
+        <h4>計分與加成</h4>
+        <ul>
+          <li><strong>基礎：</strong>每題 100 分。</li>
+          <li><strong>加成：</strong>每 5 連勝加成 10% 得分（上限 100%）。</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="section">
+  <h3>2. UI 規範與主題色支援</h3>
+  <div class="pros-cons">
+    <div class="pros">
+      <h4>CSS 變數與樣式</h4>
+      <ul>
+        <li><strong>強調色：</strong>使用 <code>var(--accent-color)</code>，支援主題色切換。</li>
+        <li><strong>按鈕：</strong>嚴格使用 <code>.btn-primary</code> 與 <code>.btn-secondary</code>。</li>
+        <li><strong>卡片：</strong>使用 <code>.card-el</code> 並帶有品牌色 <code>border-left</code>。</li>
+        <li><strong>圓角：</strong>統一使用 <code>var(--radius-md)</code> 與 <code>var(--radius-lg)</code>。</li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+<div class="section">
+  <h3>3. 提示道具 (Power-ups)</h3>
+  <div class="options" data-multiselect>
+    <div class="option is-checked" data-choice="5050">
+      <div class="letter">3x</div>
+      <div class="content">
+        <h3>50/50 刪去法</h3>
+        <p>隨機排除兩個錯誤選項，每局可用 3 次。</p>
+      </div>
+    </div>
+    <div class="option is-checked" data-choice="brand">
+      <div class="letter">3x</div>
+      <div class="content">
+        <h3>同品牌提示</h3>
+        <p>將干擾選項替換為同品牌歌曲，縮小範圍同時增加混淆度。</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="section">
+  <h3>4. 技術架構</h3>
+  <div class="mockup">
+    <div class="mockup-header">檔案結構與資料流</div>
+    <div class="mockup-body" style="font-family: monospace; font-size: 13px; line-height: 1.6;">
+      <div>📁 app/guess/page.tsx <span style="color: var(--text-muted)">- 頁面容器與 Metadata</span></div>
+      <div>📁 components/guess/</div>
+      <div style="padding-left: 20px;">├── GameClient.tsx <span style="color: var(--text-muted)">- 核心狀態機控制</span></div>
+      <div style="padding-left: 20px;">├── YoutubePlayer.tsx <span style="color: var(--text-muted)">- 播放器封裝</span></div>
+      <div style="padding-left: 20px;">└── GameOverModal.tsx <span style="color: var(--text-muted)">- (新) 結算畫面</span></div>
+      <div style="margin-top: 10px; border-top: 1px solid var(--border-color); padding-top: 10px;">
+        API: <code>GET /api/songs</code> (現有)
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="options">
+  <div class="option" data-choice="confirm_spec" onclick="toggleSelect(this)">
+    <div class="letter">OK</div>
+    <div class="content">
+      <h3>設計規格確認無誤</h3>
+      <p>請開始撰寫實作計畫並執行。</p>
+    </div>
+  </div>
+</div>

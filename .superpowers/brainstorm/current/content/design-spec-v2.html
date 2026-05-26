@@ -1,0 +1,72 @@
+<h2>猜歌系統 (Song Guessing Game) 設計規格書 (已更新)</h2>
+<p class="subtitle">目標：打造與主站風格 100% 整合的互動遊戲</p>
+
+<div class="section">
+  <h3>1. 遊戲核心：無盡挑戰 (Survival Mode)</h3>
+  <div class="cards">
+    <div class="card">
+      <div class="card-body">
+        <h4>單局流程</h4>
+        <ul>
+          <li><strong>抽選：</strong>1 題答案 + 3 題干擾（共 4 選項）。</li>
+          <li><strong>播放：</strong>播放 YouTube 音訊，遮蔽畫面。</li>
+          <li><strong>判定：</strong>正確則分數 +1 並續關；錯誤則結束。</li>
+        </ul>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-body">
+        <h4>計分方式</h4>
+        <ul>
+          <li><strong>基礎：</strong>每題 1 分。</li>
+          <li><strong>加成：</strong><span style="color: var(--text-muted)">無連勝加成。</span></li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="section">
+  <h3>2. UI 規範與主題色支援</h3>
+  <div class="pros-cons">
+    <div class="pros">
+      <h4>CSS 變數與樣式</h4>
+      <ul>
+        <li><strong>強調色：</strong>使用 <code>var(--accent-color)</code>，支援主題色切換。</li>
+        <li><strong>按鈕：</strong>嚴格使用 <code>.btn-primary</code> 與 <code>.btn-secondary</code>。</li>
+        <li><strong>卡片：</strong>使用 <code>.card-el</code> 並帶有品牌色 <code>border-left</code>。</li>
+        <li><strong>圓角：</strong>統一使用 <code>var(--radius-md)</code> 與 <code>var(--radius-lg)</code>。</li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+<div class="section">
+  <h3>3. 提示道具 (Power-ups)</h3>
+  <div class="options" data-multiselect>
+    <div class="option is-checked" data-choice="5050">
+      <div class="letter">3x</div>
+      <div class="content">
+        <h3>50/50 刪去法</h3>
+        <p>隨機排除兩個錯誤選項，每局可用 3 次。</p>
+      </div>
+    </div>
+    <div class="option is-checked" data-choice="brand">
+      <div class="letter">3x</div>
+      <div class="content">
+        <h3>同品牌提示</h3>
+        <p>將干擾選項替換為同品牌歌曲，增加混淆度。</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="options">
+  <div class="option" data-choice="confirm_spec_final" onclick="toggleSelect(this)">
+    <div class="letter">A</div>
+    <div class="content">
+      <h3>設計規格確認無誤</h3>
+      <p>計分每題 1 分，無連勝加成。請開始實作。</p>
+    </div>
+  </div>
+</div>
