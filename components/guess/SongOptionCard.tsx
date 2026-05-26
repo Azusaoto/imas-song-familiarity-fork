@@ -30,24 +30,58 @@ export default function SongOptionCard({
   };
 
   const brandColor = getBrandColor(option.brand);
-  let cardClasses =
-    'card-el relative flex flex-col p-6 text-left overflow-hidden transition-all duration-300 ease-out';
+  let cardClasses = 'card-el';
+  let cardStyles: React.CSSProperties = {
+    position: 'relative',
+    display: 'flex',
+    flexDirection: 'column',
+    padding: '24px',
+    textAlign: 'left',
+    overflow: 'hidden',
+    transition: 'all 0.3s ease-out'
+  };
 
   if (isEliminated) {
-    cardClasses +=
-      ' opacity-30 cursor-not-allowed scale-95 bg-gray-100 dark:bg-gray-900 border-gray-200 dark:border-gray-800';
+    cardStyles = {
+      ...cardStyles,
+      opacity: 0.3,
+      cursor: 'not-allowed',
+      transform: 'scale(0.95)',
+      backgroundColor: '#f3f4f6',
+      borderColor: '#e5e7eb'
+    };
   } else if (isAnswered) {
     if (isCorrectAnswer) {
-      cardClasses +=
-        ' border-green-500 bg-green-50 dark:bg-green-900/20 shadow-[0_0_20px_rgba(34,197,94,0.2)] z-10 scale-[1.02]';
+      cardStyles = {
+        ...cardStyles,
+        borderColor: '#22c55e',
+        backgroundColor: '#f0fdf4',
+        boxShadow: '0 0 20px rgba(34,197,94,0.2)',
+        zIndex: 10,
+        transform: 'scale(1.02)'
+      };
     } else if (isSelected) {
-      cardClasses +=
-        ' border-red-500 bg-red-50 dark:bg-red-900/20 shadow-[0_0_20px_rgba(239,68,68,0.2)] opacity-80';
+      cardStyles = {
+        ...cardStyles,
+        borderColor: '#ef4444',
+        backgroundColor: '#fef2f2',
+        boxShadow: '0 0 20px rgba(239,68,68,0.2)',
+        opacity: 0.8
+      };
     } else {
-      cardClasses += ' opacity-50 scale-95 border-gray-200 dark:border-gray-800';
+      cardStyles = {
+        ...cardStyles,
+        opacity: 0.5,
+        transform: 'scale(0.95)',
+        borderColor: '#e5e7eb'
+      };
     }
   } else {
-    cardClasses += ' cursor-pointer hover:scale-[1.02] hover:border-accent-color hover:shadow-lg';
+    cardStyles = {
+      ...cardStyles,
+      cursor: 'pointer',
+      '--border-color-hover': brandColor
+    } as React.CSSProperties;
   }
 
   return (
@@ -55,22 +89,39 @@ export default function SongOptionCard({
       onClick={() => onClick(option.id)}
       disabled={isAnswered || isEliminated}
       className={cardClasses}
-      style={(!isEliminated ? { '--border-color-hover': brandColor } : {}) as React.CSSProperties}
+      style={cardStyles}
     >
       {!isEliminated && (
         <div
-          className="absolute top-0 left-0 w-1.5 h-full opacity-70"
-          style={{ backgroundColor: brandColor }}
+          style={{
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            width: '6px',
+            height: '100%',
+            opacity: 0.7,
+            backgroundColor: brandColor
+          }}
         />
       )}
 
-      <div className="flex items-center justify-between w-full mb-3 pl-2">
-        <span className="text-[10px] font-bold tracking-widest uppercase px-2 py-0.5 rounded bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 border border-gray-200 dark:border-gray-700">
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', marginBottom: '12px', paddingLeft: '8px' }}>
+        <span style={{
+          fontSize: '10px',
+          fontWeight: 'bold',
+          letterSpacing: '0.1em',
+          textTransform: 'uppercase',
+          padding: '2px 8px',
+          borderRadius: '4px',
+          backgroundColor: '#f3f4f6',
+          color: '#6b7280',
+          border: '1px solid #e5e7eb'
+        }}>
           {isEliminated ? 'ELIMINATED' : getBrandDisplayName(option.brand)}
         </span>
         {isAnswered && isCorrectAnswer && (
-          <span className="flex items-center gap-1 text-green-600 dark:text-green-400 text-xs font-bold animate-pulse">
-            <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+          <span style={{ display: 'flex', alignItems: 'center', gap: '4px', color: '#16a34a', fontSize: '12px', fontWeight: 'bold' }}>
+            <svg style={{ width: '16px', height: '16px' }} fill="currentColor" viewBox="0 0 20 20">
               <path
                 fillRule="evenodd"
                 d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
@@ -81,8 +132,8 @@ export default function SongOptionCard({
           </span>
         )}
         {isAnswered && isSelected && !isCorrectAnswer && (
-          <span className="flex items-center gap-1 text-red-600 dark:text-red-400 text-xs font-bold">
-            <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+          <span style={{ display: 'flex', alignItems: 'center', gap: '4px', color: '#dc2626', fontSize: '12px', fontWeight: 'bold' }}>
+            <svg style={{ width: '16px', height: '16px' }} fill="currentColor" viewBox="0 0 20 20">
               <path
                 fillRule="evenodd"
                 d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
@@ -94,14 +145,21 @@ export default function SongOptionCard({
         )}
       </div>
 
-      <div className="pl-2">
+      <div style={{ paddingLeft: '8px' }}>
         <h3
-          className={`text-lg font-bold mb-1 leading-tight ${isEliminated ? 'line-through text-gray-400' : 'text-gray-800 dark:text-gray-100'}`}
+          style={{
+            fontSize: '18px',
+            fontWeight: 'bold',
+            marginBottom: '4px',
+            lineHeight: 1.2,
+            textDecoration: isEliminated ? 'line-through' : 'none',
+            color: isEliminated ? '#9ca3af' : 'var(--text-primary)'
+          }}
         >
           {isEliminated ? '---' : option.title}
         </h3>
-        <p className="text-sm text-gray-500 dark:text-gray-400 font-medium flex items-center">
-          <span className="opacity-60 mr-1.5">BY</span>
+        <p style={{ fontSize: '14px', color: 'var(--text-secondary)', fontWeight: '500', display: 'flex', alignItems: 'center' }}>
+          <span style={{ opacity: 0.6, marginRight: '6px' }}>BY</span>
           {isEliminated ? '---' : getSingerText(option)}
         </p>
       </div>

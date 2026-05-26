@@ -1,0 +1,75 @@
+<h2>核心模式：無盡挑戰 (Survival)</h2>
+<p class="subtitle">答錯就結束，挑戰最高連勝分數</p>
+
+<div class="mockup">
+  <div class="mockup-header">設計提案：風格一致性與主題色支援</div>
+  <div class="mockup-body">
+    <div style="background: var(--bg-base); padding: 20px; border-radius: 8px;">
+      <!-- 模擬目前專案的 Header 風格 -->
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; border-bottom: 1px solid var(--border-color); padding-bottom: 10px;">
+        <h3 style="margin: 0; background: linear-gradient(135deg, var(--accent-text-dark), var(--accent-color)); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">超級猜歌挑戰</h3>
+        <div style="font-size: 14px; color: var(--text-secondary);">
+          連勝：<span style="color: var(--accent-color); font-weight: 700; font-size: 18px;">5</span>
+        </div>
+      </div>
+
+      <!-- 播放器區塊 -->
+      <div style="aspect-ratio: 16/9; background: #000; border-radius: var(--radius-lg); position: relative; display: flex; align-items: center; justify-content: center; margin-bottom: 24px; box-shadow: var(--shadow-lg);">
+        <div style="text-align: center; color: white;">
+          <div style="font-size: 40px; margin-bottom: 10px; color: var(--accent-color);">🎵</div>
+          <div style="font-weight: 600; letter-spacing: 2px;">LISTEN CAREFULLY...</div>
+        </div>
+      </div>
+
+      <!-- 選項區塊 -->
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+        <div class="card-el" style="padding: 15px; cursor: pointer; border-left: 4px solid var(--accent-color);">
+          <div style="font-size: 12px; color: var(--text-muted);">765 PRO</div>
+          <div style="font-weight: 600;">M@STERPIECE</div>
+        </div>
+        <div class="card-el" style="padding: 15px; cursor: pointer; border-left: 4px solid #F34F6D;">
+          <div style="font-size: 12px; color: var(--text-muted);">学マス</div>
+          <div style="font-weight: 600;">初</div>
+        </div>
+      </div>
+
+      <!-- 提示工具 -->
+      <div style="margin-top: 24px; display: flex; gap: 10px;">
+        <button class="btn btn-secondary" style="flex: 1;">50/50 刪去法 (2)</button>
+        <button class="btn btn-secondary" style="flex: 1;">同品牌提示 (1)</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="section">
+  <h3>為什麼這樣設計？</h3>
+  <ul>
+    <li><strong>CSS 變數支援</strong>：全面使用 <code>var(--accent-color)</code> 等變數，確保你在網站頂端更換主題色時，遊戲介面會同步更新。</li>
+    <li><strong>風格延續</strong>：使用與首頁一致的 <code>card-el</code>、<code>btn</code> 類別與圓角規範 (<code>var(--radius-lg)</code>)。</li>
+    <li><strong>無盡模式規則</strong>：
+      <ul>
+        <li>生命值：1 次機會（答錯即結算）。</li>
+        <li>分數計算：答對一題得 100 分，連勝有加成。</li>
+        <li>排行榜：結算後可選擇上傳分數至全站排行榜。</li>
+      </ul>
+    </li>
+  </ul>
+</div>
+
+<div class="options">
+  <div class="option" data-choice="approve" onclick="toggleSelect(this)">
+    <div class="letter">OK</div>
+    <div class="content">
+      <h3>沒問題，就照這個風格做</h3>
+      <p>確認無盡挑戰模式為核心，並支援主題色切換。</p>
+    </div>
+  </div>
+  <div class="option" data-choice="adjust" onclick="toggleSelect(this)">
+    <div class="letter">!</div>
+    <div class="content">
+      <h3>還需要微調</h3>
+      <p>請在終端機告訴我你想修改的地方。</p>
+    </div>
+  </div>
+</div>

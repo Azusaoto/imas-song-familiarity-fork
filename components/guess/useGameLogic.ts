@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { Song, Question, GameState } from '@/types/game';
 import { shuffle } from '@/lib/shuffle';
 
@@ -11,13 +11,24 @@ export function useGameLogic() {
   const [currentQuestion, setCurrentQuestion] = useState<Question | null>(null);
   const [selectedOptionId, setSelectedOptionId] = useState<string | null>(null);
   const [score, setScore] = useState(0);
+  const [bestRecord, setBestRecord] = useState(0);
   const [error, setError] = useState<string | null>(null);
+
+  const nextQuestionTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   // Tools state
   const [eliminationCount, setEliminationCount] = useState(3);
   const [sameBrandCount, setSameBrandCount] = useState(3);
   const [eliminatedOptions, setEliminatedOptions] = useState<string[]>([]);
   const [sameBrandUsedOnCurrent, setSameBrandUsedOnCurrent] = useState(false);
+
+  // Load high score
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('imas-guess-highscore');
+      if (saved) setBestRecord(parseInt(saved, 10));
+    }
+  }, []);
 
   useEffect(() => {
     fetch('/api/songs')
@@ -37,7 +48,15 @@ export function useGameLogic() {
       });
   }, []);
 
+  const clearTimer = useCallback(() => {
+    if (nextQuestionTimerRef.current) {
+      clearTimeout(nextQuestionTimerRef.current);
+      nextQuestionTimerRef.current = null;
+    }
+  }, []);
+
   const generateQuestion = useCallback(() => {
+    clearTimer();
     if (playableSongs.length === 0 || allSongs.length < 4) {
       return;
     }
@@ -53,7 +72,7 @@ export function useGameLogic() {
     setEliminatedOptions([]);
     setSameBrandUsedOnCurrent(false);
     setGameState('playing');
-  }, [playableSongs, allSongs]);
+  }, [playableSongs, allSongs, clearTimer]);
 
   const startGame = () => {
     setScore(0);
@@ -70,14 +89,28 @@ export function useGameLogic() {
     const isCorrect = optionId === currentQuestion?.answer.id;
     if (isCorrect) {
       setGameState('answered');
-      setScore((prev) => prev + 1);
-      setTimeout(() => {
+      setScore((prev) => {
+        const newScore = prev + 1;
+        if (newScore > bestRecord) {
+          setBestRecord(newScore);
+          localStorage.setItem('imas-guess-highscore', newScore.toString());
+        }
+        return newScore;
+      });
+      
+      clearTimer();
+      nextQuestionTimerRef.current = setTimeout(() => {
         generateQuestion();
       }, 1500);
     } else {
       setGameState('gameover');
     }
   };
+
+  // Cleanup timer on unmount
+  useEffect(() => {
+    return () => clearTimer();
+  }, [clearTimer]);
 
   const useElimination = () => {
     if (eliminationCount <= 0 || !currentQuestion || gameState !== 'playing') return;
@@ -118,6 +151,7 @@ export function useGameLogic() {
   return {
     gameState,
     score,
+    bestRecord,
     error,
     currentQuestion,
     selectedOptionId,

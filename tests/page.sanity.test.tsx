@@ -10,6 +10,21 @@ vi.mock('next-auth/react', () => ({
   signOut: vi.fn(),
 }));
 
+// Mock window.matchMedia
+Object.defineProperty(window, 'matchMedia', {
+  writable: true,
+  value: vi.fn().mockImplementation(query => ({
+    matches: false,
+    media: query,
+    onchange: null,
+    addListener: vi.fn(), // deprecated
+    removeListener: vi.fn(), // deprecated
+    addEventListener: vi.fn(),
+    removeEventListener: vi.fn(),
+    dispatchEvent: vi.fn(),
+  })),
+});
+
 // 模擬 global.fetch 以避免 JSDOM 解析相對路徑失敗
 global.fetch = vi.fn().mockImplementation(() =>
   Promise.resolve({

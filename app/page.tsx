@@ -606,6 +606,9 @@ export default function SongFamiliarityHub() {
             )}
           </div>
           <div className="auth-nav">
+            <a href="/guess" className="btn" style={{ padding: '6px 12px', fontSize: '12px', backgroundColor: '#8b5cf6', color: 'white', fontWeight: 'bold' }}>
+              🎵 猜歌遊戲
+            </a>
             <button onClick={() => setShowPitchModal(true)} className="btn btn-secondary" style={{ padding: '6px 12px', fontSize: '12px' }}>
               音域對照表
             </button>

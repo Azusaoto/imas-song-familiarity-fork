@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React from 'react';
 import YoutubePlayer from './YoutubePlayer';
 import GameOverModal from './GameOverModal';
 import GameStatusHeader from './GameStatusHeader';
@@ -12,6 +12,7 @@ export default function GameClient() {
   const {
     gameState,
     score,
+    bestRecord,
     error,
     currentQuestion,
     selectedOptionId,
@@ -26,26 +27,33 @@ export default function GameClient() {
     useSameBrand,
   } = useGameLogic();
 
-  const [isPlaying, setIsPlaying] = useState(false);
-
-  const handlePlayerReady = (event: { target: { playVideo: () => void } }) => {
-    event.target.playVideo();
-    setIsPlaying(true);
-  };
-
   if (gameState === 'loading') {
     return (
-      <div className="flex h-[70vh] items-center justify-center">
-        <div className="animate-spin rounded-full h-16 w-16 border-t-4 border-b-4 border-purple-500"></div>
+      <div style={{ display: 'flex', height: '70vh', alignItems: 'center', justifyItems: 'center', justifyContent: 'center' }}>
+        <div className="animate-spin" style={{
+          width: '64px',
+          height: '64px',
+          borderRadius: '50%',
+          borderTop: '4px solid var(--accent-color)',
+          borderBottom: '4px solid var(--accent-color)',
+          opacity: 0.8
+        }}></div>
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="flex h-[70vh] items-center justify-center">
-        <div className="bg-red-100 text-red-700 px-6 py-4 rounded-xl shadow-lg border border-red-200">
-          <p className="font-bold text-lg">⚠️ {error}</p>
+      <div style={{ display: 'flex', height: '70vh', alignItems: 'center', justifyContent: 'center' }}>
+        <div style={{
+          backgroundColor: '#fee2e2',
+          color: '#b91c1c',
+          padding: '16px 24px',
+          borderRadius: '16px',
+          boxShadow: 'var(--shadow-md)',
+          border: '1px solid #fecaca'
+        }}>
+          <p style={{ fontWeight: 'bold', fontSize: '18px' }}>⚠️ {error}</p>
         </div>
       </div>
     );
@@ -53,20 +61,46 @@ export default function GameClient() {
 
   if (gameState === 'idle') {
     return (
-      <div className="flex flex-col items-center justify-center min-h-[60vh] text-center px-4">
-        <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-xl p-10 rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.12)] border border-white/20 dark:border-gray-700/50 max-w-lg w-full transform transition-all hover:scale-[1.02]">
-          <div className="w-20 h-20 bg-gradient-to-tr from-purple-500 to-indigo-500 rounded-2xl mx-auto mb-6 flex items-center justify-center shadow-lg shadow-purple-500/30">
-            <span className="text-4xl">🎵</span>
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '60vh', textAlign: 'center', padding: '0 16px' }}>
+        <div className="card-el" style={{
+          padding: '40px',
+          borderRadius: '32px',
+          maxWidth: '512px',
+          width: '100%',
+          backgroundColor: 'rgba(255, 255, 255, 0.8)',
+          backdropFilter: 'blur(16px)',
+          transition: 'all 0.3s ease'
+        }}>
+          <div style={{
+            width: '80px',
+            height: '80px',
+            background: 'linear-gradient(to top right, #a855f7, #6366f1)',
+            borderRadius: '16px',
+            margin: '0 auto 24px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            boxShadow: '0 8px 16px rgba(168, 85, 247, 0.3)'
+          }}>
+            <span style={{ fontSize: '40px' }}>🎵</span>
           </div>
-          <h2 className="text-4xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-purple-600 to-indigo-600 dark:from-purple-400 dark:to-indigo-400 mb-4">
+          <h2 style={{
+            fontSize: '36px',
+            fontWeight: '900',
+            marginBottom: '16px',
+            background: 'linear-gradient(to right, #9333ea, #4f46e5)',
+            WebkitBackgroundClip: 'text',
+            WebkitTextFillColor: 'transparent'
+          }}>
             超級猜歌挑戰
           </h2>
-          <p className="text-gray-600 dark:text-gray-300 text-lg mb-8 leading-relaxed">
+          <p style={{ color: 'var(--text-secondary)', fontSize: '18px', marginBottom: '32px', lineHeight: 1.6 }}>
             官方試聽 MV 大挑戰！仔細聆聽歌曲片段，從四個選項中找出正確的歌名與演唱者。
           </p>
           <button
             onClick={startGame}
-            className="w-full py-4 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white rounded-xl font-bold text-xl shadow-xl hover:shadow-purple-500/40 transition-all duration-300 transform hover:-translate-y-1"
+            className="btn btn-primary"
+            style={{ width: '100%', padding: '16px', fontSize: '20px', borderRadius: '16px' }}
           >
             立即開始遊戲
           </button>
@@ -81,9 +115,10 @@ export default function GameClient() {
   const isAnswered = gameState === 'answered';
 
   return (
-    <div className="max-w-4xl mx-auto py-6 px-4 flex flex-col space-y-6" style={buildThemeVars('#92cfbb')}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
       <GameStatusHeader
         score={score}
+        bestRecord={bestRecord}
         eliminationCount={eliminationCount}
         sameBrandCount={sameBrandCount}
         gameState={gameState}
@@ -93,23 +128,13 @@ export default function GameClient() {
         onUseSameBrand={useSameBrand}
       />
 
-      {/* 影片播放區塊 */}
-      <div className="relative w-full max-w-2xl mx-auto flex flex-col items-center">
-        <div className="w-full bg-black/5 dark:bg-black/20 p-2 rounded-[2rem] shadow-inner backdrop-blur-sm border border-gray-100 dark:border-gray-800">
-          <YoutubePlayer 
-            videoId={videoId} 
-            showVideo={isAnswered} 
-            onReady={handlePlayerReady}
-            onError={() => {
-              console.error('Video failed to load, automatically skipping...');
-              handleNext();
-            }}
-          />
+      <div style={{ width: '100%', maxWidth: '672px', margin: '0 auto', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+        <div style={{ width: '100%', backgroundColor: 'rgba(0, 0, 0, 0.05)', padding: '8px', borderRadius: '32px', border: '1px solid var(--border-color)', backdropFilter: 'blur(4px)' }}>
+          <YoutubePlayer videoId={videoId} showVideo={isAnswered} />
         </div>
       </div>
 
-      {/* 選項區塊 */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6">
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '16px', marginTop: '24px' }}>
         {currentQuestion.options.map((option) => (
           <SongOptionCard
             key={option.id}
@@ -124,18 +149,25 @@ export default function GameClient() {
       </div>
 
       {isAnswered && (
-        <div className="flex justify-center pt-8 pb-12 animate-fade-in-up">
+        <div style={{ display: 'flex', justifyContent: 'center', paddingTop: '32px', paddingBottom: '48px' }}>
           <button
             onClick={handleNext}
-            className="group relative px-10 py-4 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-2xl font-black text-xl shadow-[0_8px_30px_rgba(79,70,229,0.3)] transition-all transform hover:scale-105 overflow-hidden"
+            className="btn btn-primary"
+            style={{
+              padding: '16px 40px',
+              borderRadius: '16px',
+              fontSize: '20px',
+              fontWeight: '900',
+              boxShadow: '0 8px 30px rgba(79, 70, 229, 0.3)',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px'
+            }}
           >
-            <span className="relative z-10 flex items-center">
-              繼續下一題
-              <svg className="w-6 h-6 ml-2 transform group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M14 5l7 7m0 0l-7 7m7-7H3" />
-              </svg>
-            </span>
-            <div className="absolute top-0 -inset-full h-full w-1/2 z-5 block transform -skew-x-12 bg-gradient-to-r from-transparent to-white opacity-20 group-hover:animate-shine" />
+            繼續下一題
+            <svg style={{ width: '24px', height: '24px' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M14 5l7 7m0 0l-7 7m7-7H3" />
+            </svg>
           </button>
         </div>
       )}
