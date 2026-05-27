@@ -126,7 +126,7 @@ export default function SongFamiliarityHub() {
   const [selectedIdols, setSelectedIdols] = useState<string[]>([]);
   const [selectedUnits, setSelectedUnits] = useState<string[]>([]);
   // 下排：依「我自己標的熟悉度」過濾。值為 0|1|2|3|4(OR)；空陣列 = 不限。
-  // 「未評」永遠顯示(這個頁面當「待評清單」用);showRated 控制是否也顯示已評
+  // 「未評」永遠顯示(這個頁面當「待評清單」用);showRated 控制是否也顯示已填
   // 預設 showRated=false → 評過的歌就消失,清單只剩待評
   const [selectedFamiliarities, setSelectedFamiliarities] = useState<number[]>([]);
   const [showRated, setShowRated] = useState(false);
@@ -489,12 +489,12 @@ export default function SongFamiliarityHub() {
       selectedUnits,
     });
     // 未評歌(無 row):永遠顯示 — 這個頁面當「待評清單」用
-    // 已評歌(0-4 row):只在 showRated=true 時顯示;若有 chip 再用 OR 過濾
+    // 已填歌(0-4 row):只在 showRated=true 時顯示;若有 chip 再用 OR 過濾
     const famSet = selectedFamiliarities.length > 0 ? new Set(selectedFamiliarities) : null;
     return upstream.filter((s) => {
       const myFam = selections[s.id];
       if (myFam === undefined) return true; // 未評永遠顯示
-      if (!showRated) return false; // 已評預設隱藏
+      if (!showRated) return false; // 已填預設隱藏
       if (famSet === null) return true;
       return famSet.has(myFam);
     });
@@ -566,7 +566,7 @@ export default function SongFamiliarityHub() {
     selectedIdols.length > 0 ||
     selectedUnits.length > 0 ||
     selectedFamiliarities.length > 0 ||
-    showRated; // 勾「顯示已評」也算啟用篩選(預設為 false)
+    showRated; // 勾「顯示已填」也算啟用篩選(預設為 false)
 
   // 動態設定主題色（含所有衍生色）
   const currentThemeColor = session?.user?.themeColor || '#92cfbb';
@@ -741,7 +741,7 @@ export default function SongFamiliarityHub() {
                 aria-disabled={!showRated}
                 title={
                   !showRated
-                    ? '勾選「顯示已評」才能依熟悉度篩選'
+                    ? '勾選「顯示已填」才能依熟悉度篩選'
                     : undefined
                 }
                 onClick={() => {
@@ -769,14 +769,14 @@ export default function SongFamiliarityHub() {
               flashShowRated ? 'is-flashing' : ''
             }`}
             data-testid="show-rated-toggle"
-            title="預設只顯示未評過的歌(當待評清單用);勾起來才會看到已評的歌"
+            title="預設只顯示未填過的歌(當待評清單用);勾起來才會看到已填的歌"
           >
             <input
               type="checkbox"
               checked={showRated}
               onChange={(e) => setShowRated(e.target.checked)}
             />
-            <span>顯示已評</span>
+            <span>顯示已填</span>
           </label>
           {showChipHint && (
             <span
@@ -785,7 +785,7 @@ export default function SongFamiliarityHub() {
               aria-live="polite"
               data-testid="fam-chip-hint"
             >
-              ↑ 勾「顯示已評」才能依熟悉度篩選
+              ↑ 勾「顯示已填」才能依熟悉度篩選
             </span>
           )}
           {/* 清除按鈕永遠 render(disabled 時 visibility hidden)避免 flex row reflow */}
