@@ -49,7 +49,7 @@ export async function POST(request: Request) {
         jsonb_object_agg(U.nickname, S.familiarity) as ratings
       FROM "UserSelection" S
       JOIN "User" U ON S."userId" = U.id
-      WHERE U.id IN (${Prisma.join(userIds)})
+      WHERE U.id::text IN (${Prisma.join(userIds)})
         AND S.familiarity IN (1, 2, 3, 4)
       GROUP BY "songId"
     `;
@@ -60,41 +60,11 @@ export async function POST(request: Request) {
       ratingsBySong.set(row.songId, row.ratings);
     }
 
-    // 2b. 拿 distinct songIds 一次抓 song（只取 collab 頁實際會用的欄位 + member name/cvName，
-    //     不抓 youtubeIds / member.id / kana / color 等省 payload）
-    const songIds = Array.from(ratingsBySong.keys());
-    const songs = await prisma.song.findMany({
-      where: { id: { in: songIds } },
-      select: {
-        id: true,
-        slug: true,
-        title: true,
-        brand: true,
-        musicType: true,
-        lyrics: true,
-        composer: true,
-        arranger: true,
-        lowestPitch: true,
-        highestPitch: true,
-        members: {
-          select: { member: { select: { name: true, cvName: true } } },
-        },
-      },
-    });
-
-    const unionSongs = songs.map((s) => ({
-      id: s.id,
-      slug: s.slug,
-      title: s.title,
-      brand: s.brand,
-      musicType: s.musicType,
-      lyrics: s.lyrics,
-      composer: s.composer,
-      arranger: s.arranger,
-      lowestPitch: s.lowestPitch,
-      highestPitch: s.highestPitch,
-      members: s.members.map((m) => ({ name: m.member.name, cvName: m.member.cvName })),
-      ratings: ratingsBySong.get(s.id) || {},
+    // 2b. 直接回傳輕量的 { id, ratings }，捨棄完整的歌曲靜態資料
+    //     由前端負責拉取全站歌曲目錄並在客戶端進行 Join，大幅縮減傳輸封包。
+    const unionSongs = Array.from(ratingsBySong.entries()).map(([id, ratings]) => ({
+      id,
+      ratings,
     }));
 
     return NextResponse.json({
