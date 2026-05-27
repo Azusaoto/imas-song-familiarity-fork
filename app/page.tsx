@@ -130,6 +130,10 @@ export default function SongFamiliarityHub() {
   // 預設 showRated=false → 評過的歌就消失,清單只剩待評
   const [selectedFamiliarities, setSelectedFamiliarities] = useState<number[]>([]);
   const [showRated, setShowRated] = useState(false);
+  // 使用者在 showRated=false 時點 chip → 跳提示 + checkbox 閃爍引導視線
+  // 兩個 state 都會在 timer 過後自動清掉,讓 UI 自然 fade 回去
+  const [showChipHint, setShowChipHint] = useState(false);
+  const [flashShowRated, setFlashShowRated] = useState(false);
   const [showPitchModal, setShowPitchModal] = useState(false);
   // 熟悉度定義說明卡 — 手機預設收起，桌面預設展開
   const [defsOpen, setDefsOpen] = useState(true);
@@ -729,23 +733,41 @@ export default function SongFamiliarityHub() {
               <button
                 key={v}
                 type="button"
-                className={`familiarity-btn state-${v} ${active ? 'active' : ''}`}
+                className={`familiarity-btn state-${v} ${active ? 'active' : ''} ${
+                  !showRated ? 'is-disabled' : ''
+                }`}
                 data-testid={`fam-filter-${v}`}
                 aria-pressed={active}
-                onClick={() =>
+                aria-disabled={!showRated}
+                title={
+                  !showRated
+                    ? '勾選「顯示已評」才能依熟悉度篩選'
+                    : undefined
+                }
+                onClick={() => {
+                  if (!showRated) {
+                    // showRated 關著時點 chip 沒意義 → 提示 + 閃爍 checkbox 引導視線
+                    setShowChipHint(true);
+                    setFlashShowRated(true);
+                    window.setTimeout(() => setShowChipHint(false), 2800);
+                    window.setTimeout(() => setFlashShowRated(false), 1200);
+                    return;
+                  }
                   setSelectedFamiliarities((prev) =>
                     prev.includes(v)
                       ? prev.filter((x) => x !== v)
                       : [...prev, v],
-                  )
-                }
+                  );
+                }}
               >
                 {label}
               </button>
             );
           })}
           <label
-            className="familiarity-unrated-toggle"
+            className={`familiarity-unrated-toggle ${
+              flashShowRated ? 'is-flashing' : ''
+            }`}
             data-testid="show-rated-toggle"
             title="預設只顯示未評過的歌(當待評清單用);勾起來才會看到已評的歌"
           >
@@ -756,6 +778,16 @@ export default function SongFamiliarityHub() {
             />
             <span>顯示已評</span>
           </label>
+          {showChipHint && (
+            <span
+              className="familiarity-chip-hint"
+              role="status"
+              aria-live="polite"
+              data-testid="fam-chip-hint"
+            >
+              ↑ 勾「顯示已評」才能依熟悉度篩選
+            </span>
+          )}
           {/* 清除按鈕永遠 render(disabled 時 visibility hidden)避免 flex row reflow */}
           <button
             type="button"
