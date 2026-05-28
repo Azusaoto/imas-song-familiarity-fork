@@ -649,6 +649,11 @@ export default function PitchAdjustmentPage() {
   const [recommendCategory, setRecommendCategory] = useState<'perfect' | 'lowSide' | 'highSide' | 'bothSide'>('perfect');
   const [visibleRecommendCount, setVisibleRecommendCount] = useState(30);
 
+  // 音域推薦的篩選狀態
+  const [recommendSearch, setRecommendSearch] = useState('');
+  const [recommendBrand, setRecommendBrand] = useState('all');
+  const [recommendType, setRecommendType] = useState('all');
+
   // 依照歌曲推薦調整 key 的篩選與分頁狀態
   const [adjustSearch, setAdjustSearch] = useState('');
   const [adjustBrand, setAdjustBrand] = useState('all');
@@ -663,7 +668,7 @@ export default function PitchAdjustmentPage() {
   // 重置推薦顯示曲數
   useEffect(() => {
     setVisibleRecommendCount(30);
-  }, [recommendCategory]);
+  }, [recommendCategory, recommendSearch, recommendBrand, recommendType]);
 
   // 記錄展開狀態： Key 為 `${pitchKey}_${brand}`
   const [expandedBrands, setExpandedBrands] = useState<Record<string, boolean>>({});
@@ -798,6 +803,31 @@ export default function PitchAdjustmentPage() {
       // 確保歌曲有音高資料
       if (!song.lowestPitch || !song.highestPitch) return;
 
+      // 關鍵字搜尋 (支援歌名、歌手/成員姓名、聲優姓名、團體/組合名)
+      if (recommendSearch.trim()) {
+        const query = recommendSearch.toLowerCase();
+        const matchesTitle = song.title?.toLowerCase().includes(query);
+        const matchesRomaji = song.romaji?.toLowerCase().includes(query);
+        const matchesKana = song.kana?.toLowerCase().includes(query);
+
+        const matchesMembers = song.members?.some((m: any) =>
+          m.name?.toLowerCase().includes(query) ||
+          m.cvName?.toLowerCase().includes(query)
+        );
+
+        const matchesUnits = song.units?.some((u: any) =>
+          u.name?.toLowerCase().includes(query)
+        );
+
+        if (!matchesTitle && !matchesRomaji && !matchesKana && !matchesMembers && !matchesUnits) return;
+      }
+
+      // 企劃篩選
+      if (recommendBrand !== 'all' && song.brand !== recommendBrand) return;
+
+      // 類型篩選
+      if (recommendType !== 'all' && song.musicType !== recommendType) return;
+
       const sLow = pitchToOrder(song.lowestPitch);
       const sHigh = pitchToOrder(song.highestPitch);
 
@@ -842,7 +872,7 @@ export default function PitchAdjustmentPage() {
     bothSide.sort((a, b) => a.totalDiff - b.totalDiff);
 
     return { perfect, lowSide, highSide, bothSide };
-  }, [allSongs, comfortableLowest, comfortableHighest]);
+  }, [allSongs, comfortableLowest, comfortableHighest, recommendSearch, recommendBrand, recommendType]);
 
   const selectedCategorySongs = useMemo(() => {
     if (recommendCategory === 'perfect') return recommendations.perfect;
@@ -869,13 +899,23 @@ export default function PitchAdjustmentPage() {
       // 確保有音高資料
       if (!song.lowestPitch || !song.highestPitch) return false;
 
-      // 關鍵字搜尋
+      // 關鍵字搜尋 (支援歌名、歌手/成員姓名、聲優姓名、團體/組合名)
       if (adjustSearch.trim()) {
         const query = adjustSearch.toLowerCase();
         const matchesTitle = song.title?.toLowerCase().includes(query);
         const matchesRomaji = song.romaji?.toLowerCase().includes(query);
         const matchesKana = song.kana?.toLowerCase().includes(query);
-        if (!matchesTitle && !matchesRomaji && !matchesKana) return false;
+
+        const matchesMembers = song.members?.some((m: any) =>
+          m.name?.toLowerCase().includes(query) ||
+          m.cvName?.toLowerCase().includes(query)
+        );
+
+        const matchesUnits = song.units?.some((u: any) =>
+          u.name?.toLowerCase().includes(query)
+        );
+
+        if (!matchesTitle && !matchesRomaji && !matchesKana && !matchesMembers && !matchesUnits) return;
       }
 
       // 企劃篩選
@@ -2134,6 +2174,104 @@ export default function PitchAdjustmentPage() {
                   </div>
                 </div>
 
+                {/* 篩選卡片 */}
+                <div className="card-el" style={{ padding: '20px 24px', background: 'var(--bg-surface)' }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr', gap: '16px', alignItems: 'center' }} className="adjust-filters-grid">
+                    {/* 搜尋歌名、歌手 */}
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                      <label style={{ fontSize: '13px', fontWeight: '600', color: 'var(--text-secondary)' }}>🔍 搜尋歌名、歌手或團體</label>
+                      <div style={{ position: 'relative' }}>
+                        <input
+                          type="text"
+                          value={recommendSearch}
+                          onChange={(e) => setRecommendSearch(e.target.value)}
+                          placeholder="搜尋歌名、歌手、聲優、組合..."
+                          style={{
+                            width: '100%',
+                            padding: '10px 14px',
+                            borderRadius: 'var(--radius-sm)',
+                            border: '1px solid var(--border-color)',
+                            backgroundColor: 'var(--bg-base)',
+                            color: 'var(--text-primary)',
+                            fontSize: '14px',
+                            outline: 'none',
+                          }}
+                        />
+                        {recommendSearch && (
+                          <button
+                            onClick={() => setRecommendSearch('')}
+                            style={{
+                              position: 'absolute',
+                              right: '10px',
+                              top: '50%',
+                              transform: 'translateY(-50%)',
+                              background: 'none',
+                              border: 'none',
+                              color: 'var(--text-muted)',
+                              cursor: 'pointer',
+                              fontSize: '16px'
+                            }}
+                          >
+                            ×
+                          </button>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* 企劃篩選 */}
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                      <label style={{ fontSize: '13px', fontWeight: '600', color: 'var(--text-secondary)' }}>🏢 偶像團體企劃</label>
+                      <select
+                        value={recommendBrand}
+                        onChange={(e) => setRecommendBrand(e.target.value)}
+                        style={{
+                          padding: '10px 14px',
+                          borderRadius: 'var(--radius-sm)',
+                          border: '1px solid var(--border-color)',
+                          backgroundColor: 'var(--bg-base)',
+                          color: 'var(--text-primary)',
+                          fontSize: '14px',
+                          outline: 'none',
+                          cursor: 'pointer'
+                        }}
+                      >
+                        <option value="all">所有企劃 (ALL)</option>
+                        <option value="music_as">765 PRO (AS)</option>
+                        <option value="music_cg">Cinderella Girls (CG)</option>
+                        <option value="music_ml">Million Live (ML)</option>
+                        <option value="music_sidem">SideM (SideM)</option>
+                        <option value="music_shiny">Shiny Colors (SC)</option>
+                        <option value="music_gakuen">學園偶像大師 (学マス)</option>
+                        <option value="music_876">vα-liv</option>
+                        <option value="music_godo">合同曲 (全體)</option>
+                      </select>
+                    </div>
+
+                    {/* 類型篩選 */}
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                      <label style={{ fontSize: '13px', fontWeight: '600', color: 'var(--text-secondary)' }}>🎵 歌曲類型</label>
+                      <select
+                        value={recommendType}
+                        onChange={(e) => setRecommendType(e.target.value)}
+                        style={{
+                          padding: '10px 14px',
+                          borderRadius: 'var(--radius-sm)',
+                          border: '1px solid var(--border-color)',
+                          backgroundColor: 'var(--bg-base)',
+                          color: 'var(--text-primary)',
+                          fontSize: '14px',
+                          outline: 'none',
+                          cursor: 'pointer'
+                        }}
+                      >
+                        <option value="all">所有類型 (ALL)</option>
+                        <option value="solo">個人曲 (Solo)</option>
+                        <option value="unit">團體曲 (Unit)</option>
+                      </select>
+                    </div>
+                  </div>
+                </div>
+
                 {/* 四大分類選擇卡 */}
                 <div style={{
                   display: 'grid',
@@ -2430,7 +2568,7 @@ export default function PitchAdjustmentPage() {
                 {/* 篩選卡片 */}
                 <div className="card-el" style={{ padding: '20px 24px', background: 'var(--bg-surface)' }}>
                   <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr', gap: '16px', alignItems: 'center' }} className="adjust-filters-grid">
-                    {/* 搜尋歌名 */}
+                    {/* 搜尋歌名、歌手 */}
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                       <label style={{ fontSize: '13px', fontWeight: '600', color: 'var(--text-secondary)' }}>🔍 搜尋歌名</label>
                       <div style={{ position: 'relative' }}>
@@ -2438,7 +2576,7 @@ export default function PitchAdjustmentPage() {
                           type="text"
                           value={adjustSearch}
                           onChange={(e) => setAdjustSearch(e.target.value)}
-                          placeholder="搜尋日文、羅馬拼音、原名..."
+                          placeholder="搜尋歌名、歌手、聲優、組合..."
                           style={{
                             width: '100%',
                             padding: '10px 14px',
