@@ -128,7 +128,6 @@ export default function SongFamiliarityHub() {
   // 下排：依「我自己標的熟悉度」過濾。值為 0|1|2|3|4(OR)；空陣列 = 不限。
   // 「未評」永遠顯示(這個頁面當「待評清單」用);showRated 控制是否也顯示已填
   // 預設 showRated=false → 評過的歌就消失,清單只剩待評
-  const [showRated, setShowRated] = useState<boolean>(false);
   const [selectedFamiliarities, setSelectedFamiliarities] = useState<number[]>([]);
   const [showAboutModal, setShowAboutModal] = useState(false);
   const [showRated, setShowRated] = useState(false);
@@ -756,9 +755,8 @@ export default function SongFamiliarityHub() {
               <button
                 key={v}
                 type="button"
-                className={`familiarity-btn state-${v} ${active ? 'active' : ''} ${
-                  !showRated ? 'is-disabled' : ''
-                }`}
+                className={`familiarity-btn state-${v} ${active ? 'active' : ''} ${!showRated ? 'is-disabled' : ''
+                  }`}
                 data-testid={`fam-filter-${v}`}
                 aria-pressed={active}
                 aria-disabled={!showRated}
@@ -797,9 +795,8 @@ export default function SongFamiliarityHub() {
             );
           })}
           <label
-            className={`familiarity-unrated-toggle ${
-              flashShowRated ? 'is-flashing' : ''
-            }`}
+            className={`familiarity-unrated-toggle ${flashShowRated ? 'is-flashing' : ''
+              }`}
             data-testid="show-rated-toggle"
             title="預設只顯示未填過的歌(當待評清單用);勾起來才會看到已填的歌"
           >
