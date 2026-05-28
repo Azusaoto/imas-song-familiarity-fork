@@ -35,6 +35,7 @@ model Song {
   lowestPitch  String?
   highestPitch String?
   youtubeIds   String?         // 公式動画的 YouTube video ID，多個以逗號分隔
+  releaseDate  String?         // 發行日期 (格式: YYYY-MM-DD)
   members      SongMember[]
   units        SongUnit[]
   selections   UserSelection[]

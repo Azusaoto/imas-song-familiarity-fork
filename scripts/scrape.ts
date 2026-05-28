@@ -269,6 +269,7 @@ async function scrapeAll() {
               arranger: arranger || null,
               members,
               youtubeIds: youtubeIds.length > 0 ? youtubeIds.join(',') : null,
+              releaseDate: null,
             });
 
             completedCount++;
@@ -298,6 +299,7 @@ async function scrapeAll() {
               composer: data.composer,
               arranger: data.arranger,
               youtubeIds: data.youtubeIds,
+              releaseDate: data.releaseDate,
             }
           });
 
