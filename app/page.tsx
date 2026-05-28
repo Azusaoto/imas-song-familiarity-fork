@@ -497,12 +497,13 @@ export default function SongFamiliarityHub() {
       selectedIdols,
       selectedUnits,
     });
-    // 未評歌(無 row):永遠顯示 — 這個頁面當「待評清單」用
+    // 未評歌(無 row):沒選 chip 時當「待評清單」永遠顯示;一旦選了 chip 就嚴格匹配,
+    //   未評不算任何熟悉度 → 隱藏(避免選「不太記得」還會跳出沒評過的歌)
     // 已填歌(0-4 row):只在 showRated=true 時顯示;若有 chip 再用 OR 過濾
     const famSet = selectedFamiliarities.length > 0 ? new Set(selectedFamiliarities) : null;
     return upstream.filter((s) => {
       const myFam = selections[s.id];
-      if (myFam === undefined) return true; // 未評永遠顯示
+      if (myFam === undefined) return famSet === null; // 有選 chip → 未評視為 mismatch
       if (!showRated) return false; // 已填預設隱藏
       if (famSet === null) return true;
       return famSet.has(myFam);
