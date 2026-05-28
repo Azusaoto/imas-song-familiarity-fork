@@ -166,7 +166,8 @@ export default function SongFamiliarityHub() {
   const [nicknameInput, setNicknameInput] = useState('');
   const [themeColorInput, setThemeColorInput] = useState('#92cfbb');
   const [isPublicInput, setIsPublicInput] = useState(false);
-  const [idolColors, setIdolColors] = useState<Array<{name: string, color: string}>>([]);
+  const [isPublicPitchRangeInput, setIsPublicPitchRangeInput] = useState(false);
+  const [idolColors, setIdolColors] = useState<Array<{ name: string, color: string }>>([]);
   const [colorSearchQuery, setColorSearchQuery] = useState('');
   const [showColorSuggestions, setShowColorSuggestions] = useState(false);
 
@@ -174,7 +175,7 @@ export default function SongFamiliarityHub() {
     fetch('/api/colors')
       .then(res => res.json())
       .then(data => { if (Array.isArray(data)) setIdolColors(data); })
-      .catch(() => {});
+      .catch(() => { });
   }, []);
 
   const [authError, setAuthError] = useState('');
@@ -268,7 +269,7 @@ export default function SongFamiliarityHub() {
           // 合併本機尚未同步的變更 (若有)
           const localStored = localStorage.getItem('guest_selections');
           const localData = localStored ? JSON.parse(localStored) : {};
-          
+
           const merged = { ...cloudSelections, ...localData };
           setSelections(merged);
 
@@ -440,7 +441,12 @@ export default function SongFamiliarityHub() {
       const res = await fetch('/api/user/settings', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ nickname: nicknameInput, themeColor: themeColorInput, isPublic: isPublicInput }),
+        body: JSON.stringify({
+          nickname: nicknameInput,
+          themeColor: themeColorInput,
+          isPublic: isPublicInput,
+          isPublicPitchRange: isPublicPitchRangeInput,
+        }),
       });
 
       const data = await res.json();
@@ -453,6 +459,7 @@ export default function SongFamiliarityHub() {
           nickname: nicknameInput,
           themeColor: themeColorInput,
           isPublic: isPublicInput,
+          isPublicPitchRange: isPublicPitchRangeInput,
         });
         setTimeout(() => {
           setShowSettingsModal(false);
@@ -470,6 +477,7 @@ export default function SongFamiliarityHub() {
       setNicknameInput(session.user.nickname || session.user.username);
       setThemeColorInput(session.user.themeColor || '#92cfbb');
       setIsPublicInput(session.user.isPublic || false);
+      setIsPublicPitchRangeInput(session.user.isPublicPitchRange || false);
       setColorSearchQuery('');
       setSettingsError('');
       setSettingsSuccess('');
@@ -599,6 +607,9 @@ export default function SongFamiliarityHub() {
                 </a>
                 <a href="/collab" className="btn btn-secondary" style={{ padding: '6px 12px', fontSize: '12px' }}>
                   共同歌單
+                </a>
+                <a href="/pitch-adjustment" className="btn btn-secondary" style={{ padding: '6px 12px', fontSize: '12px' }}>
+                  音域設定
                 </a>
                 <button onClick={() => signOut({ callbackUrl: window.location.origin })} className="btn btn-danger" style={{ padding: '6px 12px', fontSize: '12px' }}>
                   登出
@@ -853,9 +864,9 @@ export default function SongFamiliarityHub() {
                       >
                         {song.title}
                       </button>
-                      <span 
+                      <span
                         className="song-badge badge-brand"
-                        style={{ 
+                        style={{
                           backgroundColor: getBrandColor(song.brand),
                           color: getAccentTextColor(getBrandColor(song.brand))
                         }}
@@ -1132,8 +1143,8 @@ export default function SongFamiliarityHub() {
                           .filter(c => c.name.toLowerCase().includes(colorSearchQuery.toLowerCase()))
                           .slice(0, 8)
                           .map(c => (
-                            <div 
-                              key={c.name} 
+                            <div
+                              key={c.name}
                               className="autocomplete-item"
                               onClick={() => {
                                 setThemeColorInput(c.color);
@@ -1144,13 +1155,13 @@ export default function SongFamiliarityHub() {
                               <span style={{ display: 'inline-block', width: '12px', height: '12px', backgroundColor: c.color, marginRight: '8px', borderRadius: '50%' }}></span>
                               {c.name} ({c.color})
                             </div>
-                        ))}
+                          ))}
                       </div>
                     )}
                   </div>
                 </div>
               </div>
-              <div className="form-group">
+              <div className="form-group" style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                 <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', userSelect: 'none' }}>
                   <input
                     type="checkbox"
@@ -1159,6 +1170,15 @@ export default function SongFamiliarityHub() {
                     style={{ width: '16px', height: '16px' }}
                   />
                   <span>公開我的歌單（允許其他人在歌曲統計中看到我）</span>
+                </label>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', userSelect: 'none' }}>
+                  <input
+                    type="checkbox"
+                    checked={isPublicPitchRangeInput}
+                    onChange={(e) => setIsPublicPitchRangeInput(e.target.checked)}
+                    style={{ width: '16px', height: '16px' }}
+                  />
+                  <span>公開我的音域（允許其他人在音高對照表中參考我）</span>
                 </label>
               </div>
               <div className="form-group">
@@ -1213,9 +1233,9 @@ export default function SongFamiliarityHub() {
           <div className="modal-content pitch-modal" onClick={(e) => e.stopPropagation()}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
               <h2 style={{ margin: 0, fontSize: '18px' }}>音域對照表 (由高至低)</h2>
-              <button 
-                onClick={() => setShowPitchModal(false)} 
-                className="btn btn-secondary" 
+              <button
+                onClick={() => setShowPitchModal(false)}
+                className="btn btn-secondary"
                 style={{ padding: '4px 10px', fontSize: '12px' }}
               >
                 關閉
