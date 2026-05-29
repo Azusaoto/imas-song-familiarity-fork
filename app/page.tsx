@@ -30,6 +30,7 @@ interface Song {
   youtubeIds: string | null;
   members: Array<{ id?: string; name: string; cvName: string | null }>;
   units?: Array<{ id: string; name: string }>;
+  releaseDate?: string | null;
 }
 
 interface Idol {
@@ -118,6 +119,7 @@ export default function SongFamiliarityHub() {
   const { data: session, status, update } = useSession();
   const [songs, setSongs] = useState<Song[]>([]);
   const [loading, setLoading] = useState(true);
+  const [sortBy, setSortBy] = useState<'title' | 'release_asc' | 'release_desc'>('title');
 
   // 篩選與搜尋狀態 — 全部支援多選 + OR 語意；預設皆空（=顯示全部）
   const [searchQuery, setSearchQuery] = useState('');
@@ -510,13 +512,31 @@ export default function SongFamiliarityHub() {
     //   未評不算任何熟悉度 → 隱藏(避免選「不太記得」還會跳出沒評過的歌)
     // 已填歌(0-4 row):只在 showRated=true 時顯示;若有 chip 再用 OR 過濾
     const famSet = selectedFamiliarities.length > 0 ? new Set(selectedFamiliarities) : null;
-    return upstream.filter((s) => {
+    const filtered = upstream.filter((s) => {
       const myFam = selections[s.id];
       if (myFam === undefined) return famSet === null; // 有選 chip → 未評視為 mismatch
       if (!showRated) return false; // 已填預設隱藏
       if (famSet === null) return true;
       return famSet.has(myFam);
     });
+
+    if (sortBy === 'release_asc') {
+      return [...filtered].sort((a, b) => {
+        const dateA = a.releaseDate || '9999-12-31';
+        const dateB = b.releaseDate || '9999-12-31';
+        if (dateA !== dateB) return dateA.localeCompare(dateB);
+        return a.title.localeCompare(b.title, 'zh-Hant');
+      });
+    } else if (sortBy === 'release_desc') {
+      return [...filtered].sort((a, b) => {
+        const dateA = a.releaseDate || '0000-01-01';
+        const dateB = b.releaseDate || '0000-01-01';
+        if (dateA !== dateB) return dateB.localeCompare(dateA);
+        return a.title.localeCompare(b.title, 'zh-Hant');
+      });
+    }
+
+    return filtered;
   }, [
     songs,
     searchQuery,
@@ -527,6 +547,7 @@ export default function SongFamiliarityHub() {
     selectedFamiliarities,
     selections,
     showRated,
+    sortBy,
   ]);
 
   // 漸進式載入：每次只渲染 PAGE_SIZE 首，滾動到底再加下一頁。
@@ -543,6 +564,7 @@ export default function SongFamiliarityHub() {
     selectedUnits,
     selectedFamiliarities,
     showRated,
+    sortBy,
   ]);
 
   const visibleSongs = useMemo(
@@ -709,7 +731,7 @@ export default function SongFamiliarityHub() {
             options={BRAND_VALUES}
             value={selectedBrands}
             onChange={handleBrandsChange}
-            placeholder="所有偶像團體"
+            placeholder="所有偶像品牌"
             className="ms-brand"
           />
           <IdolPickerModal
@@ -897,12 +919,38 @@ export default function SongFamiliarityHub() {
                 color: 'var(--text-secondary)',
                 display: 'flex',
                 alignItems: 'center',
+                flexWrap: 'wrap',
                 gap: '12px',
               }}
             >
               <span data-testid="result-count">
                 顯示 {visibleSongs.length} / {filteredSongs.length} 首歌曲
               </span>
+
+              {/* Sorting Options Selector */}
+              <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>排序：</span>
+                <select
+                  value={sortBy}
+                  onChange={(e) => setSortBy(e.target.value as any)}
+                  className="form-input"
+                  style={{
+                    padding: '4px 24px 4px 8px',
+                    fontSize: '12px',
+                    width: 'auto',
+                    minHeight: '28px',
+                    height: '28px',
+                    borderRadius: 'var(--radius-sm)',
+                    cursor: 'pointer',
+                    background: 'var(--bg-surface) url("data:image/svg+xml,%3csvg xmlns=\'http://www.w3.org/2000/svg\' fill=\'none\' viewBox=\'0 0 20 20\'%3e%3cpath stroke=\'%236b7280\' stroke-linecap=\'round\' stroke-linejoin=\'round\' stroke-width=\'1.5\' d=\'M6 8l4 4 4-4\'/%3e%3c/svg%3e") no-repeat right 6px center / 16px',
+                  }}
+                >
+                  <option value="title">歌名 (A-Z)</option>
+                  <option value="release_asc">發行日期 (舊 → 新)</option>
+                  <option value="release_desc">發行日期 (新 → 舊)</option>
+                </select>
+              </div>
+
               {visibleCount < filteredSongs.length && (
                 <span
                   style={{ fontSize: '12px', color: 'var(--text-muted)' }}
@@ -956,6 +1004,19 @@ export default function SongFamiliarityHub() {
                       {(song.lowestPitch || song.highestPitch) && (
                         <span className="song-badge badge-pitch">
                           音域: {song.lowestPitch || '--'} ~ {song.highestPitch || '--'}
+                        </span>
+                      )}
+                      {song.releaseDate && (sortBy === 'release_asc' || sortBy === 'release_desc') && (
+                        <span className="song-badge badge-release-date" style={{
+                          backgroundColor: 'rgba(59, 130, 246, 0.08)',
+                          color: '#2563eb',
+                          border: '1px solid rgba(59, 130, 246, 0.2)',
+                          padding: '2px 8px',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '3px'
+                        }}>
+                          📅 {song.releaseDate}
                         </span>
                       )}
                     </div>
