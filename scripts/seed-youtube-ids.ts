@@ -2578,6 +2578,11 @@ async function main() {
   for (const [title, ids] of entries) {
     const youtubeIds = ids.trim() !== '' ? ids.trim() : null;
 
+    if (!youtubeIds) {
+      console.warn(`[跳過] 歌曲: 「${title}」 沒有提供 YouTube IDs。`);
+      continue;
+    }
+
     try {
       const result = await prisma.song.updateMany({
         where: {
