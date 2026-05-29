@@ -11,7 +11,7 @@ const prisma = new PrismaClient();
  *   "Never say never": "xxxxxxxxx",
  */
 const youtubeIdsMap: Record<string, string> = {
-  "\\"HELLO!\\"": "zxBftixd3Gk,M6DyhuxoNw8",
+  "\"HELLO!\"": "zxBftixd3Gk,M6DyhuxoNw8",
   "“NOTHING TO LOSE\"": "Cf_QPbou4Ik",
   "#HE4DSHOT": "614X06BVSGQ,oyiwplYcQAw",
   "-LEGNE- 仇なす剣 光の旋律": "cFR2q8uRVCY",
@@ -659,7 +659,7 @@ const youtubeIdsMap: Record<string, string> = {
   "NUDIE★": "se0ddhdUYe0",
   "Naked Romance": "",
   "Naraku": "jnVkaZzxaZs",
-  "Nation Blue": "RD9Z4cDrdJwrU,buyMnZMESdM",
+  "Nation Blue": "9Z4cDrdJwrU",
   "Nation Blue -蒼く蒼く蒼く Remix-": "buyMnZMESdM",
   "Near to You": "0e_a9em4uao,jr8ilKycn6Y,_BppLhudI-E",
   "Near to You ～PicoPico D'n'B MIX～": "Z7Jp2L8PfHI",
