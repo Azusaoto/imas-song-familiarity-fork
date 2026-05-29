@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { Song, Question, GameState } from '@/types/game';
 import { shuffle } from '@/lib/shuffle';
 import { useSession } from 'next-auth/react';
@@ -16,6 +16,13 @@ export function useGameLogic() {
   const [bestRecord, setBestRecord] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [selections, setSelections] = useState<Record<string, number>>({});
+  const [selectedBrands, setSelectedBrands] = useState<string[]>([]);
+
+  const matchingSongsCount = useMemo(() => {
+    if (playableSongs.length === 0) return 0;
+    if (selectedBrands.length === 0) return playableSongs.length;
+    return playableSongs.filter((s) => selectedBrands.includes(s.brand)).length;
+  }, [playableSongs, selectedBrands]);
 
   const nextQuestionTimerRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -83,14 +90,24 @@ export function useGameLogic() {
 
   const generateQuestion = useCallback(() => {
     clearTimer();
-    if (playableSongs.length === 0 || allSongs.length < 4) {
+
+    // Filter song banks by selectedBrands (if any are selected)
+    const filteredPlayable = selectedBrands.length > 0
+      ? playableSongs.filter((s) => selectedBrands.includes(s.brand))
+      : playableSongs;
+
+    const filteredAll = selectedBrands.length > 0
+      ? allSongs.filter((s) => selectedBrands.includes(s.brand))
+      : allSongs;
+
+    if (filteredPlayable.length === 0 || filteredAll.length < 4) {
       return;
     }
 
-    const answerIndex = Math.floor(Math.random() * playableSongs.length);
-    const answer = playableSongs[answerIndex];
+    const answerIndex = Math.floor(Math.random() * filteredPlayable.length);
+    const answer = filteredPlayable[answerIndex];
 
-    const distractors = shuffle(allSongs.filter(s => s.id !== answer.id)).slice(0, 3);
+    const distractors = shuffle(filteredAll.filter(s => s.id !== answer.id)).slice(0, 3);
     const options = shuffle([answer, ...distractors]);
 
     setCurrentQuestion({ answer, options });
@@ -98,7 +115,7 @@ export function useGameLogic() {
     setEliminatedOptions([]);
     setSameBrandUsedOnCurrent(false);
     setGameState('playing');
-  }, [playableSongs, allSongs, clearTimer]);
+  }, [playableSongs, allSongs, selectedBrands, clearTimer]);
 
   const startGame = () => {
     setScore(0);
@@ -212,6 +229,9 @@ export function useGameLogic() {
     eliminatedOptions,
     sameBrandUsedOnCurrent,
     selections,
+    selectedBrands,
+    setSelectedBrands,
+    matchingSongsCount,
     startGame,
     handleOptionClick,
     handleNext: generateQuestion,

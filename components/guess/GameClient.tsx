@@ -6,7 +6,9 @@ import GameOverModal from './GameOverModal';
 import GameStatusHeader from './GameStatusHeader';
 import SongOptionCard from './SongOptionCard';
 import { useGameLogic } from './useGameLogic';
-import { buildThemeVars } from '@/lib/themeUtils';
+import { buildThemeVars, getBrandColor, getBrandDisplayName } from '@/lib/themeUtils';
+import { BRAND_VALUES } from '@/lib/brandMap';
+import { BrandIcon } from '@/components/BrandIcon';
 
 export default function GameClient() {
   const {
@@ -21,6 +23,9 @@ export default function GameClient() {
     eliminatedOptions,
     sameBrandUsedOnCurrent,
     selections,
+    selectedBrands,
+    setSelectedBrands,
+    matchingSongsCount,
     startGame,
     handleOptionClick,
     handleNext,
@@ -38,6 +43,16 @@ export default function GameClient() {
       setActiveFamiliaritySongId(null);
     }
   }, [gameState]);
+
+  const toggleBrand = (b: string) => {
+    setSelectedBrands((prev) => {
+      if (prev.includes(b)) {
+        return prev.filter((x) => x !== b);
+      } else {
+        return [...prev, b];
+      }
+    });
+  };
 
   if (gameState === 'loading') {
     return (
@@ -77,7 +92,7 @@ export default function GameClient() {
         <div className="card-el" style={{
           padding: '40px',
           borderRadius: '32px',
-          maxWidth: '512px',
+          maxWidth: '640px',
           width: '100%',
           backgroundColor: 'rgba(255, 255, 255, 0.8)',
           backdropFilter: 'blur(16px)',
@@ -109,10 +124,82 @@ export default function GameClient() {
           <p style={{ color: 'var(--text-secondary)', fontSize: '18px', marginBottom: '32px', lineHeight: 1.6 }}>
             官方試聽 MV 大挑戰！仔細聆聽歌曲片段，從四個選項中找出正確的歌名與演唱者。
           </p>
+
+          <div style={{ marginBottom: '32px', textAlign: 'left', width: '100%' }}>
+            <label style={{ display: 'block', fontWeight: 'bold', fontSize: '15px', marginBottom: '12px', color: 'var(--text-primary)' }}>
+              🎯 選擇挑戰的品牌（可複選，不選代表全部）：
+            </label>
+            <div className="brand-picker-grid" style={{
+              display: 'grid',
+              gap: '8px',
+              width: '100%'
+            }}>
+              {BRAND_VALUES.map((b) => {
+                const checked = selectedBrands.includes(b);
+                const color = getBrandColor(b);
+                return (
+                  <button
+                    key={b}
+                    type="button"
+                    onClick={() => toggleBrand(b)}
+                    aria-pressed={checked}
+                    className={`brand-card ${checked ? 'is-checked' : ''}`}
+                    style={
+                      checked
+                        ? {
+                          borderColor: color,
+                          backgroundColor: `${color}10`,
+                          boxShadow: `0 0 0 1px ${color}33 inset`,
+                          cursor: 'pointer'
+                        }
+                        : { cursor: 'pointer' }
+                    }
+                  >
+                    <span className="brand-card-icon">
+                      <BrandIcon brand={b} className="brand-card-svg" />
+                    </span>
+                    <span className="brand-card-name" style={{ fontSize: '12px' }}>{getBrandDisplayName(b)}</span>
+                    {checked && (
+                      <span
+                        className="brand-card-check"
+                        style={{ background: color }}
+                        aria-hidden="true"
+                      >
+                        ✓
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+            <p style={{
+              fontSize: '13px',
+              color: matchingSongsCount >= 4 ? 'var(--accent-text-dark, #4f46e5)' : '#dc2626',
+              fontWeight: '600',
+              marginTop: '16px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '4px'
+            }}>
+              <span>📊</span>
+              {matchingSongsCount >= 4
+                ? `已選品牌共有 ${matchingSongsCount} 首歌曲可供挑戰`
+                : `可挑戰歌曲數為 ${matchingSongsCount} 首 (至少需 4 首)`}
+            </p>
+          </div>
+
           <button
             onClick={startGame}
+            disabled={matchingSongsCount < 4}
             className="btn btn-primary"
-            style={{ width: '100%', padding: '16px', fontSize: '20px', borderRadius: '16px' }}
+            style={{
+              width: '100%',
+              padding: '16px',
+              fontSize: '20px',
+              borderRadius: '16px',
+              opacity: matchingSongsCount < 4 ? 0.6 : 1,
+              cursor: matchingSongsCount < 4 ? 'not-allowed' : 'pointer'
+            }}
           >
             立即開始遊戲
           </button>
