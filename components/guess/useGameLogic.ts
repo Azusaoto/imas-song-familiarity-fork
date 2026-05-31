@@ -125,7 +125,16 @@ export function useGameLogic() {
     const distractors = shuffle(filteredAll.filter(s => s.id !== answer.id)).slice(0, 3);
     const options = shuffle([answer, ...distractors]);
 
-    setCurrentQuestion({ answer, options });
+    const rawIds = answer.youtubeIds;
+    let videoId = '';
+    if (rawIds) {
+      const ids = rawIds.split(',').map((id) => id.trim()).filter(Boolean);
+      if (ids.length > 0) {
+        videoId = ids[Math.floor(Math.random() * ids.length)];
+      }
+    }
+
+    setCurrentQuestion({ answer, options, videoId });
     setSelectedOptionId(null);
     setEliminatedOptions([]);
     setSameBrandUsedOnCurrent(false);
@@ -229,7 +238,7 @@ export function useGameLogic() {
       newDistractors.push(...differentBrandSongs.slice(0, 3 - newDistractors.length));
     }
 
-    setCurrentQuestion({ answer, options: shuffle([answer, ...newDistractors]) });
+    setCurrentQuestion({ answer, options: shuffle([answer, ...newDistractors]), videoId: currentQuestion.videoId });
     setSameBrandCount((prev) => prev - 1);
     setSameBrandUsedOnCurrent(true);
     setEliminatedOptions([]);

@@ -211,7 +211,7 @@ export default function GameClient() {
 
   if (!currentQuestion) return null;
 
-  const videoId = currentQuestion.answer.youtubeIds?.split(',')[0].trim() || '';
+  const videoId = currentQuestion.videoId;
   const isAnswered = gameState === 'answered';
 
   return (
