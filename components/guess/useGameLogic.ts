@@ -128,8 +128,10 @@ export function useGameLogic() {
     const rawIds = answer.youtubeIds;
     let videoId = '';
     if (rawIds) {
-      const ids = rawIds.split(',').map((id) => id.trim());
-      videoId = ids[Math.floor(Math.random() * ids.length)];
+      const ids = rawIds.split(',').map((id) => id.trim()).filter(Boolean);
+      if (ids.length > 0) {
+        videoId = ids[Math.floor(Math.random() * ids.length)];
+      }
     }
 
     setCurrentQuestion({ answer, options, videoId });
