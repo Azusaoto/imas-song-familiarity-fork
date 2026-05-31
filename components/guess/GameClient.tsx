@@ -211,13 +211,7 @@ export default function GameClient() {
 
   if (!currentQuestion) return null;
 
-  const videoId = React.useMemo(() => {
-    const rawIds = currentQuestion.answer.youtubeIds;
-    if (!rawIds) return '';
-    const ids = rawIds.split(',').map((id) => id.trim());
-    return ids[Math.floor(Math.random() * ids.length)];
-  }, [currentQuestion.answer.id, currentQuestion.answer.youtubeIds]);
-
+  const videoId = currentQuestion.videoId;
   const isAnswered = gameState === 'answered';
 
   return (
