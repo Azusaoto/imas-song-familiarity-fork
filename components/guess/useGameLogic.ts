@@ -26,6 +26,12 @@ export function useGameLogic() {
 
   const nextQuestionTimerRef = useRef<NodeJS.Timeout | null>(null);
 
+  // 已出過的歌 — 用 ref 不要驅動 re-render,只是用來在 generateQuestion 裡剔除已答的歌
+  // 解決小 brand pool (合同 14 / 876 30) 5-8 題就重複的 bug
+  const seenIdsRef = useRef<Set<string>>(new Set());
+  // 池子答完了 → 觸發「imas 猜歌大師」結尾
+  const [isMaster, setIsMaster] = useState(false);
+
   // Tools state
   const [eliminationCount, setEliminationCount] = useState(3);
   const [sameBrandCount, setSameBrandCount] = useState(3);
@@ -104,8 +110,17 @@ export function useGameLogic() {
       return;
     }
 
-    const answerIndex = Math.floor(Math.random() * filteredPlayable.length);
-    const answer = filteredPlayable[answerIndex];
+    // 去重:把已出過的歌剔除,確保不會重複
+    const remaining = filteredPlayable.filter((s) => !seenIdsRef.current.has(s.id));
+    if (remaining.length === 0) {
+      // 池子答完 → 達成「imas 猜歌大師」
+      setIsMaster(true);
+      setGameState('gameover');
+      return;
+    }
+
+    const answer = remaining[Math.floor(Math.random() * remaining.length)];
+    seenIdsRef.current.add(answer.id);
 
     const distractors = shuffle(filteredAll.filter(s => s.id !== answer.id)).slice(0, 3);
     const options = shuffle([answer, ...distractors]);
@@ -118,6 +133,9 @@ export function useGameLogic() {
   }, [playableSongs, allSongs, selectedBrands, clearTimer]);
 
   const startGame = () => {
+    // 重新開局 — 清掉「已出過」記憶 + 大師旗標,讓新一輪能完整掃過 pool
+    seenIdsRef.current = new Set();
+    setIsMaster(false);
     setScore(0);
     setEliminationCount(3);
     setSameBrandCount(3);
@@ -232,6 +250,7 @@ export function useGameLogic() {
     selectedBrands,
     setSelectedBrands,
     matchingSongsCount,
+    isMaster,
     startGame,
     handleOptionClick,
     handleNext: generateQuestion,

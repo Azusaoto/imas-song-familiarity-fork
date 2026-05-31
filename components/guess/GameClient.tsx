@@ -26,6 +26,7 @@ export default function GameClient() {
     selectedBrands,
     setSelectedBrands,
     matchingSongsCount,
+    isMaster,
     startGame,
     handleOptionClick,
     handleNext,
@@ -304,10 +305,12 @@ export default function GameClient() {
       )}
 
       {gameState === 'gameover' && (
-        <GameOverModal 
-          score={score} 
-          correctAnswer={currentQuestion.answer}
-          onRestart={startGame} 
+        <GameOverModal
+          score={score}
+          // 大師模式不顯示「正確答案」區塊(沒有「答錯的題」)
+          correctAnswer={isMaster ? null : currentQuestion.answer}
+          isMaster={isMaster}
+          onRestart={startGame}
         />
       )}
     </div>
