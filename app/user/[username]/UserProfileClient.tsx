@@ -405,7 +405,7 @@ export default function UserProfileClient({
         }
         .profile-grid {
           display: grid;
-          grid-template-columns: 1fr 1fr 1fr;
+          grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr);
           gap: 24px;
           margin-bottom: 32px;
           align-items: stretch;
@@ -416,22 +416,33 @@ export default function UserProfileClient({
           border-radius: var(--radius-md);
           padding: 20px;
           min-height: 400px;
+          min-width: 0;
           display: flex;
           flex-direction: column;
           box-shadow: var(--shadow-sm);
         }
         .section-header {
           display: flex;
+          flex-wrap: wrap;
           justify-content: space-between;
           align-items: center;
+          gap: 8px;
           margin-bottom: 16px;
           border-bottom: 1px solid var(--border-color);
           padding-bottom: 10px;
+          min-width: 0;
         }
         .section-header h3 {
           font-size: 16px;
-          fontWeight: 600;
+          font-weight: 600;
           color: var(--text-primary);
+          min-width: 0;
+        }
+        .section-header-actions {
+          display: flex;
+          gap: 6px;
+          flex-shrink: 0;
+          margin-left: auto;
         }
         .idol-list-grid {
           display: grid;
@@ -578,7 +589,7 @@ export default function UserProfileClient({
             <div className="section-header" style={{ marginBottom: isOwner ? '8px' : '16px' }}>
               <h3>擔當偶像 ({producerIdols.length} / 50)</h3>
               {isOwner && (
-                <div style={{ display: 'flex', gap: '6px' }}>
+                <div className="section-header-actions">
                   <button
                     type="button"
                     onClick={() => setShowIdolModal(true)}
@@ -677,7 +688,7 @@ export default function UserProfileClient({
             <div className="section-header">
               <h3>代表曲 ({representativeSongs.length} / 5)</h3>
               {isOwner && (
-                <div style={{ display: 'flex', gap: '6px' }}>
+                <div className="section-header-actions">
                   <button
                     type="button"
                     onClick={() => setShowRepSongsModal(true)}
@@ -762,7 +773,7 @@ export default function UserProfileClient({
             <div className="section-header">
               <h3>歡迎合唱 ({collabSongs.length} / 50)</h3>
               {isOwner && (
-                <div style={{ display: 'flex', gap: '6px' }}>
+                <div className="section-header-actions">
                   <button
                     type="button"
                     onClick={() => setShowCollabSongsModal(true)}
