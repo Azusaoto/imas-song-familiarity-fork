@@ -734,33 +734,31 @@ export default function UserProfileClient({
                   return (
                     <div
                       key={song.id}
-                      className={`profile-song-item ${!isOwner ? 'is-clickable' : ''}`}
+                      className="profile-song-item is-clickable"
                       draggable={isOwner}
                       onDragStart={(e) => handleDragStart(e, index, 'repSong')}
                       onDragEnter={() => handleDragEnter(index, 'repSong')}
                       onDragEnd={handleDragEnd}
                       onDragOver={(e) => e.preventDefault()}
-                      onClick={!isOwner ? () => setSelectedDetailSong(song) : undefined}
+                      onClick={() => setSelectedDetailSong(song)}
                       style={{
-                        cursor: isOwner ? 'grab' : 'pointer',
+                        cursor: 'pointer',
                         opacity: draggedItem?.type === 'repSong' && draggedItem.index === index ? 0.4 : 1,
                         transition: 'opacity 0.2s ease, transform 0.2s ease',
                       }}
-                      title={!isOwner ? '點擊查看歌曲詳細資料與試聽' : undefined}
+                      title="點擊查看歌曲詳細資料與試聽"
                     >
                       <span style={{ fontSize: '18px', display: 'flex', alignItems: 'center' }}>
                         <BrandIcon brand={song.brand} />
                       </span>
                       <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ display: 'flex', alignItems: 'baseline', gap: '6px' }}>
-                          <span style={{ fontWeight: '600', fontSize: '13px', color: brandColor, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={song.title}>
-                            {song.title}
-                          </span>
-                        </div>
-                        <div style={{ fontSize: '11px', color: 'var(--text-muted)', wordBreak: 'break-all', marginTop: '4px' }}>
-                          {song.members.map((m) => m.name).join('、')}
-                        </div>
+                        <span style={{ fontWeight: '600', fontSize: '13px', color: brandColor, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'block' }} title={song.title}>
+                          {song.title}
+                        </span>
                       </div>
+                      <span style={{ fontSize: '14px', color: 'var(--text-muted)', flexShrink: 0 }} aria-hidden="true">
+                        ▶
+                      </span>
                     </div>
                   );
                 })}
@@ -819,33 +817,31 @@ export default function UserProfileClient({
                   return (
                     <div
                       key={song.id}
-                      className={`profile-song-item ${!isOwner ? 'is-clickable' : ''}`}
+                      className="profile-song-item is-clickable"
                       draggable={isOwner}
                       onDragStart={(e) => handleDragStart(e, index, 'collabSong')}
                       onDragEnter={() => handleDragEnter(index, 'collabSong')}
                       onDragEnd={handleDragEnd}
                       onDragOver={(e) => e.preventDefault()}
-                      onClick={!isOwner ? () => setSelectedDetailSong(song) : undefined}
+                      onClick={() => setSelectedDetailSong(song)}
                       style={{
-                        cursor: isOwner ? 'grab' : 'pointer',
+                        cursor: 'pointer',
                         opacity: draggedItem?.type === 'collabSong' && draggedItem.index === index ? 0.4 : 1,
                         transition: 'opacity 0.2s ease, transform 0.2s ease',
                       }}
-                      title={!isOwner ? '點擊查看歌曲詳細資料與試聽' : undefined}
+                      title="點擊查看歌曲詳細資料與試聽"
                     >
                       <span style={{ fontSize: '18px', display: 'flex', alignItems: 'center' }}>
                         <BrandIcon brand={song.brand} />
                       </span>
                       <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ display: 'flex', alignItems: 'baseline', gap: '6px' }}>
-                          <span style={{ fontWeight: '600', fontSize: '13px', color: brandColor, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={song.title}>
-                            {song.title}
-                          </span>
-                        </div>
-                        <div style={{ fontSize: '11px', color: 'var(--text-muted)', wordBreak: 'break-all', marginTop: '4px' }}>
-                          {song.members.map((m) => m.name).join('、')}
-                        </div>
+                        <span style={{ fontWeight: '600', fontSize: '13px', color: brandColor, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'block' }} title={song.title}>
+                          {song.title}
+                        </span>
                       </div>
+                      <span style={{ fontSize: '14px', color: 'var(--text-muted)', flexShrink: 0 }} aria-hidden="true">
+                        ▶
+                      </span>
                     </div>
                   );
                 })}
