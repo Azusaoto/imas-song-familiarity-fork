@@ -44,10 +44,10 @@ export default function CollaborationPlaylistPage() {
   // 自己:登入時自動加入比對。未登入則 self = null
   const self: PickerUser | null = session?.user
     ? {
-        nickname: session.user.nickname || session.user.username || '我',
-        shareCode: session.user.shareCode!,
-        themeColor: session.user.themeColor || '#92cfbb',
-      }
+      nickname: session.user.nickname || session.user.username || '我',
+      shareCode: session.user.shareCode!,
+      themeColor: session.user.themeColor || '#92cfbb',
+    }
     : null;
 
   // 點 song card 開試聽 modal — 比對中的人 + ratings 會即時組成 participants 傳進 modal
@@ -61,6 +61,8 @@ export default function CollaborationPlaylistPage() {
   // 排序：依加權分數 (會唱=4 / 常聽=3 / 聽過=2 / 模糊=1) 加總,分數高者排上面
   // 預設 ON — 線下聚會選歌時最有用的排序
   const [sortByScore, setSortByScore] = useState(true);
+  // 依所有人聽過優先 (填寫2分以上，即會唱、常聽、聽過)
+  const [prioritizeAllHeard, setPrioritizeAllHeard] = useState(false);
 
   // 全站歌曲目錄 (Global Song Catalog)，用於與後端傳回的輕量評分資料進行 Join
   const [globalSongsMap, setGlobalSongsMap] = useState<Map<string, Omit<CollabSong, 'ratings'>>>(new Map());
@@ -138,6 +140,7 @@ export default function CollaborationPlaylistPage() {
         setIncludedUsers([]);
         setIncludedFams([]);
         setIncludedBrands([]);
+        setPrioritizeAllHeard(false);
       }
     } catch (err) {
       setError('與伺服器連線異常，請稍後再試。');
@@ -148,11 +151,9 @@ export default function CollaborationPlaylistPage() {
 
   // 加權分數: 5-familiarity → 會唱=4 / 常聽=3 / 聽過=2 / 模糊=1
   // 加總所有(有評過的)使用者對該歌的權重;沒評 / 不在 1..4 範圍 = 不計分
-  // 排序時若有 includedUsers chip,只算被選到的人(跟「合計」對齊使用者意圖)
-  function songScore(s: CollabSong, userSet: Set<string> | null): number {
+  function songScore(s: CollabSong): number {
     let total = 0;
-    for (const [nick, fam] of Object.entries(s.ratings)) {
-      if (userSet && !userSet.has(nick)) continue;
+    for (const [, fam] of Object.entries(s.ratings)) {
       if (typeof fam !== 'number' || fam < 1 || fam > 4) continue;
       total += 5 - fam;
     }
@@ -173,12 +174,35 @@ export default function CollaborationPlaylistPage() {
         return true;
       });
     });
-    if (!sortByScore) return filtered;
-    // Array.sort 自 ES2019 stable,同分維持原順序
-    return [...filtered].sort(
-      (a, b) => songScore(b, userSet) - songScore(a, userSet),
-    );
-  }, [result, includedUsers, includedFams, includedBrands, sortByScore]);
+    let finalSongs = filtered;
+    if (sortByScore) {
+      // Array.sort 自 ES2019 stable,同分維持原順序
+      finalSongs = [...filtered].sort((a, b) => songScore(b) - songScore(a));
+    }
+
+    if (prioritizeAllHeard) {
+      const isHeardByAll = (song: CollabSong, users: string[]): boolean => {
+        if (users.length === 0) return false;
+        return users.every((user) => {
+          const rating = song.ratings[user];
+          return rating !== undefined && rating !== null && rating >= 1 && rating <= 3;
+        });
+      };
+
+      const groupA: CollabSong[] = [];
+      const groupB: CollabSong[] = [];
+      for (const song of finalSongs) {
+        if (isHeardByAll(song, result.users)) {
+          groupA.push(song);
+        } else {
+          groupB.push(song);
+        }
+      }
+      return [...groupA, ...groupB];
+    }
+
+    return finalSongs;
+  }, [result, includedUsers, includedFams, includedBrands, sortByScore, prioritizeAllHeard]);
 
   // 下拉只列出當前 union 結果裡實際出現過的品牌
   const presentBrands = useMemo(() => {
@@ -213,6 +237,109 @@ export default function CollaborationPlaylistPage() {
     2: 'state-2',
     3: 'state-3',
     4: 'state-4',
+  };
+
+  const handleExportXLS = () => {
+    if (!result || filteredSongs.length === 0) return;
+
+    const escapeHtml = (str: string) => {
+      return str
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+    };
+
+    const headers = [
+      '歌曲名稱',
+      '品牌',
+      '作詞',
+      '作曲',
+      '編曲',
+      '最低音',
+      '最高音',
+      '成員(CV)',
+      ...result.users
+    ];
+
+    const rows = filteredSongs.map((song) => {
+      const brandName = getBrandDisplayName(song.brand) || song.brand;
+      const membersText = song.members
+        .map((m) => `${m.name}${m.cvName ? `(${m.cvName})` : ''}`)
+        .join(', ');
+
+      const userRatings = result.users.map((user) => {
+        const rating = song.ratings[user];
+        return familiarityLabels[rating] || '—';
+      });
+
+      return [
+        song.title,
+        brandName,
+        song.lyrics || '',
+        song.composer || '',
+        song.arranger || '',
+        song.lowestPitch || '',
+        song.highestPitch || '',
+        membersText,
+        ...userRatings
+      ];
+    });
+
+    const tableHtml = `
+      <html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">
+      <head>
+        <meta charset="UTF-8">
+        <!--[if gte mso 9]>
+        <xml>
+          <x:ExcelWorkbook>
+            <x:ExcelWorksheets>
+              <x:ExcelWorksheet>
+                <x:Name>共同歌單篩選結果</x:Name>
+                <x:WorksheetOptions>
+                  <x:DisplayGridlines/>
+                </x:WorksheetOptions>
+              </x:ExcelWorksheet>
+            </x:ExcelWorksheets>
+          </x:ExcelWorkbook>
+        </xml>
+        <![endif]-->
+        <style>
+          table { border-collapse: collapse; }
+          th, td { border: 1px solid #ccc; padding: 6px; text-align: left; }
+          th { background-color: #f2f2f2; font-weight: bold; }
+        </style>
+      </head>
+      <body>
+        <table>
+          <thead>
+            <tr>
+              ${headers.map((h) => `<th>${escapeHtml(h)}</th>`).join('')}
+            </tr>
+          </thead>
+          <tbody>
+            ${rows
+        .map(
+          (row) =>
+            `<tr>${row.map((val) => `<td>${escapeHtml(val)}</td>`).join('')}</tr>`
+        )
+        .join('')}
+          </tbody>
+        </table>
+      </body>
+      </html>
+    `;
+
+    const blob = new Blob([tableHtml], { type: 'application/vnd.ms-excel;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `collab_playlist_${new Date().toISOString().slice(0, 10)}.xls`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
   };
 
   return (
@@ -380,11 +507,31 @@ export default function CollaborationPlaylistPage() {
 
         {result && (
           <div>
-            <h3 style={{ fontSize: '18px', fontWeight: '600', marginBottom: '16px' }}>
-              {result.users.join(' / ')}
-              <span style={{ marginLeft: '12px', fontSize: '14px', color: 'var(--accent-color)' }}>
-                合計 {filteredSongs.length} / {result.songs.length} 首
-              </span>
+            <h3 style={{
+              fontSize: '18px',
+              fontWeight: '600',
+              marginBottom: '16px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              flexWrap: 'wrap',
+              gap: '12px'
+            }}>
+              <div>
+                {result.users.join(' / ')}
+                <span style={{ marginLeft: '12px', fontSize: '14px', color: 'var(--accent-color)' }}>
+                  合計 {filteredSongs.length} / {result.songs.length} 首
+                </span>
+              </div>
+              <button
+                type="button"
+                className="btn btn-secondary"
+                style={{ padding: '6px 12px', fontSize: '12px', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+                onClick={handleExportXLS}
+                disabled={filteredSongs.length === 0}
+              >
+                📥 匯出目前篩選結果 (.xls)
+              </button>
             </h3>
 
             {/* 二次篩選：依使用者 */}
@@ -507,19 +654,45 @@ export default function CollaborationPlaylistPage() {
               </section>
             )}
 
-            {/* 排序切換 — 預設依分數排序,可關掉回到 union 原始順序 */}
+            {/* 排序與優先級切換 */}
             <div
               style={{
                 display: 'flex',
                 alignItems: 'center',
-                gap: '12px',
+                gap: '24px',
+                flexWrap: 'wrap',
                 margin: '8px 0 16px',
                 fontSize: '13px',
                 color: 'var(--text-secondary)',
               }}
             >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <label
+                  data-testid="sort-by-score-toggle"
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    cursor: 'pointer',
+                    userSelect: 'none',
+                  }}
+                  title="會唱=4 / 常聽=3 / 聽過=2 / 模糊=1,所有人加總"
+                >
+                  <input
+                    type="checkbox"
+                    checked={sortByScore}
+                    onChange={(e) => setSortByScore(e.target.checked)}
+                    style={{ cursor: 'pointer' }}
+                  />
+                  <span>依會唱程度排序</span>
+                </label>
+                <span style={{ color: 'var(--text-muted)', fontSize: '12px' }}>
+                  會唱=4 / 常聽=3 / 聽過=2 / 模糊=1 加總
+                </span>
+              </div>
+
               <label
-                data-testid="sort-by-score-toggle"
+                data-testid="prioritize-all-heard-toggle"
                 style={{
                   display: 'inline-flex',
                   alignItems: 'center',
@@ -527,19 +700,16 @@ export default function CollaborationPlaylistPage() {
                   cursor: 'pointer',
                   userSelect: 'none',
                 }}
-                title="會唱=4 / 常聽=3 / 聽過=2 / 模糊=1,所有人加總;若選了「依使用者」chip,只計算被選到的人"
+                title="優先顯示所有人皆有評分且都在「聽過」以上（即會唱、常聽、聽過）的歌曲"
               >
                 <input
                   type="checkbox"
-                  checked={sortByScore}
-                  onChange={(e) => setSortByScore(e.target.checked)}
+                  checked={prioritizeAllHeard}
+                  onChange={(e) => setPrioritizeAllHeard(e.target.checked)}
                   style={{ cursor: 'pointer' }}
                 />
-                <span>依會唱程度排序</span>
+                <span>依所有人聽過優先</span>
               </label>
-              <span style={{ color: 'var(--text-muted)', fontSize: '12px' }}>
-                會唱=4 / 常聽=3 / 聽過=2 / 模糊=1 加總
-              </span>
             </div>
 
             <section className="songs-grid">
