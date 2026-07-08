@@ -16,6 +16,11 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: '缺少必要欄位。' }, { status: 400 });
     }
 
+    // 不能許願給自己
+    if (targetUserId === session.user.id) {
+      return NextResponse.json({ error: '不能對自己許願曲子。' }, { status: 400 });
+    }
+
     // 檢查目標使用者是否存在
     const targetUser = await prisma.user.findUnique({
       where: { id: targetUserId },
@@ -30,6 +35,21 @@ export async function POST(request: Request) {
     });
     if (!song) {
       return NextResponse.json({ error: '歌曲不存在。' }, { status: 404 });
+    }
+
+    // 不能對同一位使用者重複許同一首歌 (包括已完成的)
+    const existing = await prisma.songWish.findFirst({
+      where: {
+        senderUserId: session.user.id,
+        targetUserId,
+        songId,
+      },
+    });
+    if (existing) {
+      const msg = existing.isCompleted
+        ? '您先前已對這位使用者許過這首歌 (已完成)。'
+        : '您已經對這位使用者許過這首歌了。';
+      return NextResponse.json({ error: msg }, { status: 409 });
     }
 
     // 建立許願

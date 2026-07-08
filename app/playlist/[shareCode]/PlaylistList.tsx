@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useMemo } from 'react';
+import { Virtuoso } from 'react-virtuoso';
 import MemberToggle from '@/components/MemberToggle';
 import BrandPicker from '@/components/BrandPicker';
 import IdolPickerModal from '@/components/IdolPickerModal';
@@ -264,57 +265,61 @@ export default function PlaylistList({ songs, idols, units }: Props) {
               : '該使用者目前沒有標記任何熟悉的歌曲。'}
           </div>
         ) : (
-          filteredSongs.map((song) => (
-            <div key={song.id} className="song-card">
-              <div className="song-info">
-                <div className="song-title-row">
-                  <button
-                    type="button"
-                    className="song-title song-title-btn"
-                    onClick={() => setSelectedSong(song)}
-                    title="點擊查看詳細資料與試聽"
-                  >
-                    {song.title}
-                  </button>
-                  <span
-                    className="song-badge badge-brand"
-                    style={{
-                      backgroundColor: getBrandColor(song.brand),
-                      color: getAccentTextColor(getBrandColor(song.brand)),
-                    }}
-                  >
-                    {getBrandDisplayName(song.brand)}
-                  </span>
-                  {song.musicType.includes('solo') && (
-                    <span className="song-badge badge-type">SOLO</span>
-                  )}
-                  {song.musicType.includes('unit') && (
-                    <span className="song-badge badge-type">UNIT</span>
-                  )}
-                  {(song.lowestPitch || song.highestPitch) && (
-                    <span className="song-badge badge-pitch">
-                      音域: {song.lowestPitch || '--'} ~ {song.highestPitch || '--'}
+          <Virtuoso
+            useWindowScroll
+            data={filteredSongs}
+            itemContent={(_index, song) => (
+              <div className="song-card" style={{ marginBottom: '16px' }}>
+                <div className="song-info">
+                  <div className="song-title-row">
+                    <button
+                      type="button"
+                      className="song-title song-title-btn"
+                      onClick={() => setSelectedSong(song)}
+                      title="點擊查看詳細資料與試聽"
+                    >
+                      {song.title}
+                    </button>
+                    <span
+                      className="song-badge badge-brand"
+                      style={{
+                        backgroundColor: getBrandColor(song.brand),
+                        color: getAccentTextColor(getBrandColor(song.brand)),
+                      }}
+                    >
+                      {getBrandDisplayName(song.brand)}
                     </span>
-                  )}
+                    {song.musicType.includes('solo') && (
+                      <span className="song-badge badge-type">SOLO</span>
+                    )}
+                    {song.musicType.includes('unit') && (
+                      <span className="song-badge badge-type">UNIT</span>
+                    )}
+                    {(song.lowestPitch || song.highestPitch) && (
+                      <span className="song-badge badge-pitch">
+                        音域: {song.lowestPitch || '--'} ~ {song.highestPitch || '--'}
+                      </span>
+                    )}
+                  </div>
+                  <div className="song-meta">
+                    {song.lyrics && <span>作詞: {song.lyrics} </span>}
+                    {song.composer && <span>/ 作曲: {song.composer} </span>}
+                    {song.arranger && <span>/ 編曲: {song.arranger}</span>}
+                  </div>
+                  <MemberToggle members={song.members} />
                 </div>
-                <div className="song-meta">
-                  {song.lyrics && <span>作詞: {song.lyrics} </span>}
-                  {song.composer && <span>/ 作曲: {song.composer} </span>}
-                  {song.arranger && <span>/ 編曲: {song.arranger}</span>}
-                </div>
-                <MemberToggle members={song.members} />
-              </div>
 
-              <div>
-                <span
-                  className={`familiarity-btn state-${song.familiarity} active`}
-                  style={{ cursor: 'default' }}
-                >
-                  {FAMILIARITY_LABEL[song.familiarity]}
-                </span>
+                <div>
+                  <span
+                    className={`familiarity-btn state-${song.familiarity} active`}
+                    style={{ cursor: 'default' }}
+                  >
+                    {FAMILIARITY_LABEL[song.familiarity]}
+                  </span>
+                </div>
               </div>
-            </div>
-          ))
+            )}
+          />
         )}
       </section>
 

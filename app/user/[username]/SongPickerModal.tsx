@@ -229,9 +229,12 @@ export default function SongPickerModal({
                             <div style={{ display: 'flex', alignItems: 'baseline', gap: '6px' }}>
                               <span style={{ fontWeight: '500', color: `${color}` }}>{song.title}</span>
                             </div>
-                            <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '2px' }}>
-                              {song.members.map((m) => m.name).join('、')}
-                            </div>
+                            {song.members.length > 0 && (
+                              <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '2px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                {song.members.slice(0, 3).map((m) => m.name).join('、')}
+                                {song.members.length > 3 && ` 等 ${song.members.length} 人`}
+                              </div>
+                            )}
                           </div>
                           {checked && <span style={{ color: 'var(--accent-color)', fontWeight: 'bold' }}>✓</span>}
                         </button>

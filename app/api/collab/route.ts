@@ -1,4 +1,6 @@
 import { NextResponse } from 'next/server';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { Prisma } from '@prisma/client';
 
@@ -24,9 +26,17 @@ export async function POST(request: Request) {
     }
 
     // 1. 獲取所有目標使用者（依 shareCode 查詢，保護原始帳號）
+    //    UI 文案標「需對方設定為公開歌單」— 這裡實際擋掉 isPublic=false
+    //    使用者。例外：登入者本人的 shareCode 就算沒公開也能加進去比對
+    //    (功能就是「把我自己跟朋友比」)。
+    const session = await getServerSession(authOptions);
     const dbUsers = await prisma.user.findMany({
       where: {
         shareCode: { in: cleanShareCodes },
+        OR: [
+          { isPublic: true },
+          ...(session?.user?.id ? [{ id: session.user.id }] : []),
+        ],
       },
     });
 
@@ -34,7 +44,7 @@ export async function POST(request: Request) {
       const foundCodes = dbUsers.map((u) => u.shareCode);
       const missingCodes = cleanShareCodes.filter((c) => !foundCodes.includes(c));
       return NextResponse.json(
-        { error: `找不到以下分享碼的用戶: ${missingCodes.join(', ')}。請確認分享碼是否輸入正確。` },
+        { error: `找不到以下分享碼的用戶,或該使用者未開放公開歌單: ${missingCodes.join(', ')}` },
         { status: 404 }
       );
     }

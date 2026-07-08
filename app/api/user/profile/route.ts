@@ -1,7 +1,23 @@
 import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
+import { z } from 'zod';
 import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
+
+// Fail-fast schema: 進 Prisma 前擋掉畸形 payload,避免無謂消耗 pool
+const UuidArray = (max: number, label: string) =>
+  z
+    .array(z.string().uuid({ message: `${label} 內含非法識別碼。` }))
+    .max(max, { message: `${label}最多只能選擇 ${max} 筆。` })
+    .refine((arr) => new Set(arr).size === arr.length, {
+      message: `${label}內含重複項目。`,
+    });
+
+const ProfileUpdateSchema = z.object({
+  producerIdolIds: UuidArray(50, '擔當偶像'),
+  representativeSongIds: UuidArray(5, '代表曲'),
+  collabSongIds: UuidArray(50, '歡迎合唱曲'),
+});
 
 export async function POST(request: Request) {
   try {
@@ -11,25 +27,27 @@ export async function POST(request: Request) {
     }
 
     const userId = session.user.id;
-    const { producerIdolIds, representativeSongIds, collabSongIds } = await request.json();
 
-    if (
-      !Array.isArray(producerIdolIds) ||
-      !Array.isArray(representativeSongIds) ||
-      !Array.isArray(collabSongIds)
-    ) {
-      return NextResponse.json({ error: '請求格式不正確。' }, { status: 400 });
+    let raw: unknown;
+    try {
+      raw = await request.json();
+    } catch {
+      return NextResponse.json({ error: '請求內容不是合法的 JSON。' }, { status: 400 });
     }
 
-    if (producerIdolIds.length > 50) {
-      return NextResponse.json({ error: '擔當偶像最多只能選擇 50 位。' }, { status: 400 });
+    const parsed = ProfileUpdateSchema.safeParse(raw);
+    if (!parsed.success) {
+      const first = parsed.error.issues[0];
+      return NextResponse.json(
+        {
+          error: first?.message || '請求格式不正確。',
+          details: parsed.error.issues.map((i) => ({ path: i.path, message: i.message })),
+        },
+        { status: 400 }
+      );
     }
-    if (representativeSongIds.length > 5) {
-      return NextResponse.json({ error: '代表曲最多只能選擇 5 首。' }, { status: 400 });
-    }
-    if (collabSongIds.length > 50) {
-      return NextResponse.json({ error: '歡迎合唱曲最多只能選擇 50 首。' }, { status: 400 });
-    }
+
+    const { producerIdolIds, representativeSongIds, collabSongIds } = parsed.data;
 
     // 使用 Transaction 確保原子性
     await prisma.$transaction([
@@ -38,19 +56,19 @@ export async function POST(request: Request) {
       prisma.userCollabSong.deleteMany({ where: { userId } }),
 
       prisma.userProducerIdol.createMany({
-        data: producerIdolIds.map((memberId: string) => ({
+        data: producerIdolIds.map((memberId) => ({
           userId,
           memberId,
         })),
       }),
       prisma.userRepresentativeSong.createMany({
-        data: representativeSongIds.map((songId: string) => ({
+        data: representativeSongIds.map((songId) => ({
           userId,
           songId,
         })),
       }),
       prisma.userCollabSong.createMany({
-        data: collabSongIds.map((songId: string) => ({
+        data: collabSongIds.map((songId) => ({
           userId,
           songId,
         })),

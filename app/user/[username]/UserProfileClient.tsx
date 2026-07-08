@@ -405,7 +405,7 @@ export default function UserProfileClient({
         }
         .profile-grid {
           display: grid;
-          grid-template-columns: 1fr 1fr 1fr;
+          grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr);
           gap: 24px;
           margin-bottom: 32px;
           align-items: stretch;
@@ -416,22 +416,33 @@ export default function UserProfileClient({
           border-radius: var(--radius-md);
           padding: 20px;
           min-height: 400px;
+          min-width: 0;
           display: flex;
           flex-direction: column;
           box-shadow: var(--shadow-sm);
         }
         .section-header {
           display: flex;
+          flex-wrap: wrap;
           justify-content: space-between;
           align-items: center;
+          gap: 8px;
           margin-bottom: 16px;
           border-bottom: 1px solid var(--border-color);
           padding-bottom: 10px;
+          min-width: 0;
         }
         .section-header h3 {
           font-size: 16px;
-          fontWeight: 600;
+          font-weight: 600;
           color: var(--text-primary);
+          min-width: 0;
+        }
+        .section-header-actions {
+          display: flex;
+          gap: 6px;
+          flex-shrink: 0;
+          margin-left: auto;
         }
         .idol-list-grid {
           display: grid;
@@ -578,7 +589,7 @@ export default function UserProfileClient({
             <div className="section-header" style={{ marginBottom: isOwner ? '8px' : '16px' }}>
               <h3>擔當偶像 ({producerIdols.length} / 50)</h3>
               {isOwner && (
-                <div style={{ display: 'flex', gap: '6px' }}>
+                <div className="section-header-actions">
                   <button
                     type="button"
                     onClick={() => setShowIdolModal(true)}
@@ -677,7 +688,7 @@ export default function UserProfileClient({
             <div className="section-header">
               <h3>代表曲 ({representativeSongs.length} / 5)</h3>
               {isOwner && (
-                <div style={{ display: 'flex', gap: '6px' }}>
+                <div className="section-header-actions">
                   <button
                     type="button"
                     onClick={() => setShowRepSongsModal(true)}
@@ -723,33 +734,31 @@ export default function UserProfileClient({
                   return (
                     <div
                       key={song.id}
-                      className={`profile-song-item ${!isOwner ? 'is-clickable' : ''}`}
+                      className="profile-song-item is-clickable"
                       draggable={isOwner}
                       onDragStart={(e) => handleDragStart(e, index, 'repSong')}
                       onDragEnter={() => handleDragEnter(index, 'repSong')}
                       onDragEnd={handleDragEnd}
                       onDragOver={(e) => e.preventDefault()}
-                      onClick={!isOwner ? () => setSelectedDetailSong(song) : undefined}
+                      onClick={() => setSelectedDetailSong(song)}
                       style={{
-                        cursor: isOwner ? 'grab' : 'pointer',
+                        cursor: 'pointer',
                         opacity: draggedItem?.type === 'repSong' && draggedItem.index === index ? 0.4 : 1,
                         transition: 'opacity 0.2s ease, transform 0.2s ease',
                       }}
-                      title={!isOwner ? '點擊查看歌曲詳細資料與試聽' : undefined}
+                      title="點擊查看歌曲詳細資料與試聽"
                     >
                       <span style={{ fontSize: '18px', display: 'flex', alignItems: 'center' }}>
                         <BrandIcon brand={song.brand} />
                       </span>
                       <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ display: 'flex', alignItems: 'baseline', gap: '6px' }}>
-                          <span style={{ fontWeight: '600', fontSize: '13px', color: brandColor, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={song.title}>
-                            {song.title}
-                          </span>
-                        </div>
-                        <div style={{ fontSize: '11px', color: 'var(--text-muted)', wordBreak: 'break-all', marginTop: '4px' }}>
-                          {song.members.map((m) => m.name).join('、')}
-                        </div>
+                        <span style={{ fontWeight: '600', fontSize: '13px', color: brandColor, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'block' }} title={song.title}>
+                          {song.title}
+                        </span>
                       </div>
+                      <span style={{ fontSize: '14px', color: 'var(--text-muted)', flexShrink: 0 }} aria-hidden="true">
+                        ▶
+                      </span>
                     </div>
                   );
                 })}
@@ -762,7 +771,7 @@ export default function UserProfileClient({
             <div className="section-header">
               <h3>歡迎合唱 ({collabSongs.length} / 50)</h3>
               {isOwner && (
-                <div style={{ display: 'flex', gap: '6px' }}>
+                <div className="section-header-actions">
                   <button
                     type="button"
                     onClick={() => setShowCollabSongsModal(true)}
@@ -808,33 +817,31 @@ export default function UserProfileClient({
                   return (
                     <div
                       key={song.id}
-                      className={`profile-song-item ${!isOwner ? 'is-clickable' : ''}`}
+                      className="profile-song-item is-clickable"
                       draggable={isOwner}
                       onDragStart={(e) => handleDragStart(e, index, 'collabSong')}
                       onDragEnter={() => handleDragEnter(index, 'collabSong')}
                       onDragEnd={handleDragEnd}
                       onDragOver={(e) => e.preventDefault()}
-                      onClick={!isOwner ? () => setSelectedDetailSong(song) : undefined}
+                      onClick={() => setSelectedDetailSong(song)}
                       style={{
-                        cursor: isOwner ? 'grab' : 'pointer',
+                        cursor: 'pointer',
                         opacity: draggedItem?.type === 'collabSong' && draggedItem.index === index ? 0.4 : 1,
                         transition: 'opacity 0.2s ease, transform 0.2s ease',
                       }}
-                      title={!isOwner ? '點擊查看歌曲詳細資料與試聽' : undefined}
+                      title="點擊查看歌曲詳細資料與試聽"
                     >
                       <span style={{ fontSize: '18px', display: 'flex', alignItems: 'center' }}>
                         <BrandIcon brand={song.brand} />
                       </span>
                       <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ display: 'flex', alignItems: 'baseline', gap: '6px' }}>
-                          <span style={{ fontWeight: '600', fontSize: '13px', color: brandColor, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={song.title}>
-                            {song.title}
-                          </span>
-                        </div>
-                        <div style={{ fontSize: '11px', color: 'var(--text-muted)', wordBreak: 'break-all', marginTop: '4px' }}>
-                          {song.members.map((m) => m.name).join('、')}
-                        </div>
+                        <span style={{ fontWeight: '600', fontSize: '13px', color: brandColor, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'block' }} title={song.title}>
+                          {song.title}
+                        </span>
                       </div>
+                      <span style={{ fontSize: '14px', color: 'var(--text-muted)', flexShrink: 0 }} aria-hidden="true">
+                        ▶
+                      </span>
                     </div>
                   );
                 })}
