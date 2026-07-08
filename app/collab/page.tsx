@@ -3,10 +3,18 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useSession } from 'next-auth/react';
 import { Virtuoso } from 'react-virtuoso';
+import * as XLSX from 'xlsx';
 import MemberToggle from '@/components/MemberToggle';
 import UserPickerModal, { PickerUser } from '@/components/UserPickerModal';
 import SongDetailModal from '@/components/SongDetailModal';
 import { buildThemeVars, getBrandColor, getBrandDisplayName, getBrandShortName, getAccentTextColor } from '@/lib/themeUtils';
+
+// CSV/公式注入防禦: Excel/Sheets 遇到 = + - @ TAB CR 開頭會當公式解析,
+// 統一在前面加單引號 (Excel 顯示時會吃掉),不影響 UI 上讀到的字。
+function sanitizeCell(value: string | null | undefined): string {
+  const s = String(value ?? '');
+  return /^[=+\-@\t\r]/.test(s) ? "'" + s : s;
+}
 
 
 interface CollabSong {
@@ -242,15 +250,6 @@ export default function CollaborationPlaylistPage() {
   const handleExportXLS = () => {
     if (!result || filteredSongs.length === 0) return;
 
-    const escapeHtml = (str: string) => {
-      return str
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;')
-        .replace(/'/g, '&#039;');
-    };
-
     const headers = [
       '歌曲名稱',
       '品牌',
@@ -260,7 +259,7 @@ export default function CollaborationPlaylistPage() {
       '最低音',
       '最高音',
       '成員(CV)',
-      ...result.users
+      ...result.users,
     ];
 
     const rows = filteredSongs.map((song) => {
@@ -283,63 +282,23 @@ export default function CollaborationPlaylistPage() {
         song.lowestPitch || '',
         song.highestPitch || '',
         membersText,
-        ...userRatings
-      ];
+        ...userRatings,
+      ].map(sanitizeCell);
     });
 
-    const tableHtml = `
-      <html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">
-      <head>
-        <meta charset="UTF-8">
-        <!--[if gte mso 9]>
-        <xml>
-          <x:ExcelWorkbook>
-            <x:ExcelWorksheets>
-              <x:ExcelWorksheet>
-                <x:Name>共同歌單篩選結果</x:Name>
-                <x:WorksheetOptions>
-                  <x:DisplayGridlines/>
-                </x:WorksheetOptions>
-              </x:ExcelWorksheet>
-            </x:ExcelWorksheets>
-          </x:ExcelWorkbook>
-        </xml>
-        <![endif]-->
-        <style>
-          table { border-collapse: collapse; }
-          th, td { border: 1px solid #ccc; padding: 6px; text-align: left; }
-          th { background-color: #f2f2f2; font-weight: bold; }
-        </style>
-      </head>
-      <body>
-        <table>
-          <thead>
-            <tr>
-              ${headers.map((h) => `<th>${escapeHtml(h)}</th>`).join('')}
-            </tr>
-          </thead>
-          <tbody>
-            ${rows
-        .map(
-          (row) =>
-            `<tr>${row.map((val) => `<td>${escapeHtml(val)}</td>`).join('')}</tr>`
-        )
-        .join('')}
-          </tbody>
-        </table>
-      </body>
-      </html>
-    `;
+    const sheet = XLSX.utils.aoa_to_sheet([headers.map(sanitizeCell), ...rows]);
+    // 稍微幫欄寬撐開,不用手動拉
+    sheet['!cols'] = headers.map((h, i) => {
+      const maxLen = Math.max(
+        h.length,
+        ...rows.map((r) => (r[i] ?? '').toString().length)
+      );
+      return { wch: Math.min(Math.max(maxLen + 2, 8), 40) };
+    });
 
-    const blob = new Blob([tableHtml], { type: 'application/vnd.ms-excel;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `collab_playlist_${new Date().toISOString().slice(0, 10)}.xls`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, sheet, '共同歌單篩選結果');
+    XLSX.writeFile(wb, `collab_playlist_${new Date().toISOString().slice(0, 10)}.xlsx`);
   };
 
   return (
@@ -530,7 +489,7 @@ export default function CollaborationPlaylistPage() {
                 onClick={handleExportXLS}
                 disabled={filteredSongs.length === 0}
               >
-                📥 匯出目前篩選結果 (.xls)
+                📥 匯出目前篩選結果 (.xlsx)
               </button>
             </h3>
 
