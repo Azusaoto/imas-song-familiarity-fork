@@ -174,7 +174,6 @@ export default function SongFamiliarityHub() {
   // 燈箱控制
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [showRegisterModal, setShowRegisterModal] = useState(false);
-  const [showSettingsModal, setShowSettingsModal] = useState(false);
   // 歌曲詳細彈窗
   const [selectedSong, setSelectedSong] = useState<Song | null>(null);
 
@@ -182,24 +181,9 @@ export default function SongFamiliarityHub() {
   const [usernameInput, setUsernameInput] = useState('');
   const [passwordInput, setPasswordInput] = useState('');
   const [nicknameInput, setNicknameInput] = useState('');
-  const [themeColorInput, setThemeColorInput] = useState('#92cfbb');
-  const [isPublicInput, setIsPublicInput] = useState(false);
-  const [isPublicPitchRangeInput, setIsPublicPitchRangeInput] = useState(false);
-  const [idolColors, setIdolColors] = useState<Array<{ name: string, color: string }>>([]);
-  const [colorSearchQuery, setColorSearchQuery] = useState('');
-  const [showColorSuggestions, setShowColorSuggestions] = useState(false);
-
-  useEffect(() => {
-    fetch('/api/colors')
-      .then(res => res.json())
-      .then(data => { if (Array.isArray(data)) setIdolColors(data); })
-      .catch(() => { });
-  }, []);
 
   const [authError, setAuthError] = useState('');
   const [authMessage, setAuthMessage] = useState('');
-  const [settingsError, setSettingsError] = useState('');
-  const [settingsSuccess, setSettingsSuccess] = useState('');
 
   // 1. 載入歌曲清單與初始化選取狀態
   useEffect(() => {
@@ -439,59 +423,7 @@ export default function SongFamiliarityHub() {
     }
   }
 
-  // 7. 使用者個人設定儲存
-  async function handleSaveSettings(e: React.FormEvent) {
-    e.preventDefault();
-    setSettingsError('');
-    setSettingsSuccess('');
 
-    try {
-      const res = await fetch('/api/user/settings', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          nickname: nicknameInput,
-          themeColor: themeColorInput,
-          isPublic: isPublicInput,
-          isPublicPitchRange: isPublicPitchRangeInput,
-        }),
-      });
-
-      const data = await res.json();
-      if (!res.ok) {
-        setSettingsError(data.error || '儲存設定失敗。');
-      } else {
-        setSettingsSuccess('個人設定儲存成功！');
-        // 更新 NextAuth 用戶端 Session
-        await update({
-          nickname: nicknameInput,
-          themeColor: themeColorInput,
-          isPublic: isPublicInput,
-          isPublicPitchRange: isPublicPitchRangeInput,
-        });
-        setTimeout(() => {
-          setShowSettingsModal(false);
-          setSettingsSuccess('');
-        }, 1000);
-      }
-    } catch (err) {
-      setSettingsError('更新個人設定時發生錯誤。');
-    }
-  }
-
-  // 初始化設定表單
-  function openSettings() {
-    if (session?.user) {
-      setNicknameInput(session.user.nickname || session.user.username);
-      setThemeColorInput(session.user.themeColor || '#92cfbb');
-      setIsPublicInput(session.user.isPublic || false);
-      setIsPublicPitchRangeInput(session.user.isPublicPitchRange || false);
-      setColorSearchQuery('');
-      setSettingsError('');
-      setSettingsSuccess('');
-      setShowSettingsModal(true);
-    }
-  }
 
   // 8. 過濾歌曲清單
   //
@@ -642,17 +574,14 @@ export default function SongFamiliarityHub() {
             </button>
             {status === 'authenticated' && session?.user ? (
               <>
-                <button onClick={openSettings} className="btn btn-secondary" style={{ padding: '6px 12px', fontSize: '12px' }}>
-                  個人設定
-                </button>
-                <a href={`/playlist/${session.user.shareCode}`} target="_blank" className="btn btn-secondary" style={{ padding: '6px 12px', fontSize: '12px' }}>
-                  公開歌單
-                </a>
                 <a href="/collab" className="btn btn-secondary" style={{ padding: '6px 12px', fontSize: '12px' }}>
                   共同歌單
                 </a>
                 <a href="/pitch-adjustment" className="btn btn-secondary" style={{ padding: '6px 12px', fontSize: '12px' }}>
                   音域設定
+                </a>
+                <a href={`/user/${session.user.username}`} className="btn btn-secondary" style={{ padding: '6px 12px', fontSize: '12px' }}>
+                  我的頁面
                 </a>
                 <button onClick={() => signOut({ callbackUrl: window.location.origin })} className="btn btn-danger" style={{ padding: '6px 12px', fontSize: '12px' }}>
                   登出
@@ -663,6 +592,9 @@ export default function SongFamiliarityHub() {
                 <span style={{ fontSize: '13px', color: 'var(--text-muted)' }}>
                   訪客模式 (儲存於本機)
                 </span>
+                <a href="/members" className="btn btn-secondary" style={{ padding: '6px 12px', fontSize: '12px' }}>
+                  會員列表
+                </a>
                 <button onClick={() => { setShowLoginModal(true); setAuthError(''); }} className="btn btn-secondary" style={{ padding: '6px 12px', fontSize: '12px' }}>
                   登入
                 </button>
@@ -1227,145 +1159,7 @@ export default function SongFamiliarityHub() {
         </div>
       )}
 
-      {/* 個人設定彈出視窗 */}
-      {showSettingsModal && session?.user && (
-        <div className="modal-overlay" onClick={() => setShowSettingsModal(false)}>
-          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-            <h2>個人設定</h2>
-            <form onSubmit={handleSaveSettings}>
-              <div className="form-group">
-                <label>使用者 P名</label>
-                <input
-                  type="text"
-                  className="form-input"
-                  required
-                  value={nicknameInput}
-                  onChange={(e) => setNicknameInput(e.target.value)}
-                />
-              </div>
-              <div className="form-group">
-                <label>自訂主題顏色</label>
-                <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-                  <input
-                    type="color"
-                    className="form-input"
-                    style={{ width: '60px', height: '40px', padding: '2px', cursor: 'pointer', flexShrink: 0 }}
-                    value={themeColorInput}
-                    onChange={(e) => setThemeColorInput(e.target.value)}
-                  />
-                  <input
-                    type="text"
-                    className="form-input"
-                    value={themeColorInput}
-                    onChange={(e) => setThemeColorInput(e.target.value)}
-                    placeholder="#92cfbb"
-                    pattern="^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$"
-                    required
-                    style={{ width: '100px', flexShrink: 0 }}
-                  />
-                  <div style={{ position: 'relative', flexGrow: 1 }}>
-                    <input
-                      type="text"
-                      className="form-input"
-                      placeholder="或搜尋擔當偶像 (如: 天海春香)..."
-                      value={colorSearchQuery}
-                      onChange={(e) => {
-                        setColorSearchQuery(e.target.value);
-                        setShowColorSuggestions(true);
-                      }}
-                      onFocus={() => setShowColorSuggestions(true)}
-                      onBlur={() => setTimeout(() => setShowColorSuggestions(false), 200)}
-                    />
-                    {showColorSuggestions && colorSearchQuery && (
-                      <div className="autocomplete-dropdown">
-                        {idolColors
-                          .filter(c => c.name.toLowerCase().includes(colorSearchQuery.toLowerCase()))
-                          .slice(0, 8)
-                          .map(c => (
-                            <div
-                              key={c.name}
-                              className="autocomplete-item"
-                              onClick={() => {
-                                setThemeColorInput(c.color);
-                                setColorSearchQuery(c.name);
-                                setShowColorSuggestions(false);
-                              }}
-                            >
-                              <span style={{ display: 'inline-block', width: '12px', height: '12px', backgroundColor: c.color, marginRight: '8px', borderRadius: '50%' }}></span>
-                              {c.name} ({c.color})
-                            </div>
-                          ))}
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
-              <div className="form-group" style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', userSelect: 'none' }}>
-                  <input
-                    type="checkbox"
-                    checked={isPublicInput}
-                    onChange={(e) => setIsPublicInput(e.target.checked)}
-                    style={{ width: '16px', height: '16px' }}
-                  />
-                  <span>公開我的歌單（允許其他人在歌曲統計中看到我）</span>
-                </label>
-                <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', userSelect: 'none' }}>
-                  <input
-                    type="checkbox"
-                    checked={isPublicPitchRangeInput}
-                    onChange={(e) => setIsPublicPitchRangeInput(e.target.checked)}
-                    style={{ width: '16px', height: '16px' }}
-                  />
-                  <span>公開我的音域（允許其他人在音高對照表中參考我）</span>
-                </label>
-              </div>
-              <div className="form-group">
-                <label>個人公開歌單連結 (識別碼已雜湊保護)</label>
-                <div style={{ display: 'flex', gap: '8px' }}>
-                  <input
-                    type="text"
-                    className="form-input"
-                    readOnly
-                    value={`${typeof window !== 'undefined' ? window.location.origin : ''}/playlist/${session.user.shareCode}`}
-                    style={{ background: 'var(--bg-base)', color: 'var(--text-muted)' }}
-                  />
-                  <button
-                    type="button"
-                    className="btn btn-secondary"
-                    style={{ whiteSpace: 'nowrap' }}
-                    onClick={() => {
-                      const url = `${window.location.origin}/playlist/${session.user.shareCode}`;
-                      navigator.clipboard.writeText(url);
-                      alert('已複製歌單網址至剪貼簿！');
-                    }}
-                  >
-                    複製
-                  </button>
-                </div>
-              </div>
-              {settingsError && (
-                <div style={{ color: '#ef4444', fontSize: '13px', marginTop: '8px' }}>
-                  {settingsError}
-                </div>
-              )}
-              {settingsSuccess && (
-                <div style={{ color: '#10b981', fontSize: '13px', marginTop: '8px' }}>
-                  {settingsSuccess}
-                </div>
-              )}
-              <div className="modal-actions">
-                <button type="button" onClick={() => setShowSettingsModal(false)} className="btn btn-secondary">
-                  取消
-                </button>
-                <button type="submit" className="btn btn-primary">
-                  儲存設定
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+
 
       {/* 關於我們彈出視窗 */}
       {showAboutModal && (
