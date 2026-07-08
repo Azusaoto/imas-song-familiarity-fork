@@ -37,6 +37,9 @@ CREATE TABLE "SongWish" (
 -- CreateIndex
 CREATE UNIQUE INDEX "SongWish_senderUserId_targetUserId_songId_key" ON "SongWish"("senderUserId", "targetUserId", "songId");
 
+-- CreateIndex
+CREATE INDEX "SongWish_targetUserId_idx" ON "SongWish"("targetUserId");
+
 -- AddForeignKey
 ALTER TABLE "UserProducerIdol" ADD CONSTRAINT "UserProducerIdol_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
