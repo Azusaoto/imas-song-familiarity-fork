@@ -178,5 +178,8 @@ model SongWish {
   targetUser   User     @relation("ReceivedWishes", fields: [targetUserId], references: [id], onDelete: Cascade)
   senderUser   User     @relation("SentWishes", fields: [senderUserId], references: [id], onDelete: Cascade)
   song         Song     @relation(fields: [songId], references: [id], onDelete: Cascade)
+
+  @@unique([senderUserId, targetUserId, songId])
+  @@index([targetUserId])
 }
 

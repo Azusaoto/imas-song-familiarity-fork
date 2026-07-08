@@ -301,6 +301,16 @@ export default function IdolPickerModalForProfile({
         )}
 
         <div className="modal-actions" style={{ marginTop: '20px', display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
+          {draft.size > 0 && (
+            <button
+              type="button"
+              className="btn btn-danger"
+              style={{ marginRight: 'auto' }}
+              onClick={() => setDraft(new Set())}
+            >
+              重設
+            </button>
+          )}
           <button type="button" className="btn btn-secondary" onClick={onClose}>
             取消
           </button>

@@ -225,14 +225,23 @@ export default function SongPickerModal({
                           <span style={{ marginRight: '10px', display: 'flex', alignItems: 'center', fontSize: '16px' }}>
                             <BrandIcon brand={song.brand} />
                           </span>
-                          <div style={{ flex: 1 }}>
+                          <div style={{ flex: 1, minWidth: 0 }}>
                             <div style={{ display: 'flex', alignItems: 'baseline', gap: '6px' }}>
                               <span style={{ fontWeight: '500', color: `${color}` }}>{song.title}</span>
                             </div>
                             {song.members.length > 0 && (
-                              <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '2px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                                {song.members.slice(0, 3).map((m) => m.name).join('、')}
-                                {song.members.length > 3 && ` 等 ${song.members.length} 人`}
+                              <div
+                                title={song.members.map((m) => m.name).join('、')}
+                                style={{
+                                  fontSize: '11px',
+                                  color: 'var(--text-muted)',
+                                  marginTop: '2px',
+                                  overflow: 'hidden',
+                                  textOverflow: 'ellipsis',
+                                  whiteSpace: 'nowrap',
+                                }}
+                              >
+                                {song.members.map((m) => m.name).join('、')}
                               </div>
                             )}
                           </div>
@@ -269,13 +278,25 @@ export default function SongPickerModal({
                       <span style={{ marginRight: '10px', display: 'flex', alignItems: 'center', fontSize: '16px' }}>
                         <BrandIcon brand={song.brand} />
                       </span>
-                      <div style={{ flex: 1 }}>
+                      <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{ display: 'flex', alignItems: 'baseline', gap: '6px' }}>
                           <span style={{ fontWeight: '500', color: `${color}` }}>{song.title}</span>
                         </div>
-                        <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '2px' }}>
-                          {song.members.map((m) => m.name).join('、')}
-                        </div>
+                        {song.members.length > 0 && (
+                          <div
+                            title={song.members.map((m) => m.name).join('、')}
+                            style={{
+                              fontSize: '11px',
+                              color: 'var(--text-muted)',
+                              marginTop: '2px',
+                              overflow: 'hidden',
+                              textOverflow: 'ellipsis',
+                              whiteSpace: 'nowrap',
+                            }}
+                          >
+                            {song.members.map((m) => m.name).join('、')}
+                          </div>
+                        )}
                       </div>
                       {checked && <span style={{ color: 'var(--accent-color)', fontWeight: 'bold' }}>✓</span>}
                     </button>
@@ -287,6 +308,16 @@ export default function SongPickerModal({
         )}
 
         <div className="modal-actions" style={{ marginTop: '20px', display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
+          {!singleSelect && draft.size > 0 && (
+            <button
+              type="button"
+              className="btn btn-danger"
+              style={{ marginRight: 'auto' }}
+              onClick={() => setDraft(new Set())}
+            >
+              重設
+            </button>
+          )}
           <button type="button" className="btn btn-secondary" onClick={onClose}>
             取消
           </button>
