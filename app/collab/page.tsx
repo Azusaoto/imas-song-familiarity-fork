@@ -8,6 +8,7 @@ import MemberToggle from '@/components/MemberToggle';
 import UserPickerModal, { PickerUser } from '@/components/UserPickerModal';
 import SongDetailModal from '@/components/SongDetailModal';
 import { buildThemeVars, getBrandColor, getBrandDisplayName, getBrandShortName, getAccentTextColor } from '@/lib/themeUtils';
+import { fetchSongsClient } from '@/lib/songClientCache';
 
 // CSV/公式注入防禦: Excel/Sheets 遇到 = + - @ TAB CR 開頭會當公式解析,
 // 統一在前面加單引號 (Excel 顯示時會吃掉),不影響 UI 上讀到的字。
@@ -33,6 +34,29 @@ interface CollabSong {
   units?: Array<{ id: string; name: string }>;
   ratings: Record<string, number>;
 }
+
+function songScore(s: CollabSong): number {
+  let total = 0;
+  const ratings = s.ratings;
+  for (const user in ratings) {
+    if (Object.prototype.hasOwnProperty.call(ratings, user)) {
+      const fam = ratings[user];
+      if (typeof fam === 'number' && fam >= 1 && fam <= 4) {
+        total += 5 - fam;
+      }
+    }
+  }
+  return total;
+}
+
+function isHeardByAll(song: CollabSong, users: string[]): boolean {
+  if (users.length === 0) return false;
+  return users.every((user) => {
+    const rating = song.ratings[user];
+    return rating !== undefined && rating !== null && rating >= 1 && rating <= 3;
+  });
+}
+
 
 export default function CollaborationPlaylistPage() {
   const { data: session } = useSession();
@@ -79,14 +103,10 @@ export default function CollaborationPlaylistPage() {
   useEffect(() => {
     async function loadCatalog() {
       try {
-        const res = await fetch('/api/songs?schema=v2', { cache: 'no-cache' });
-        if (!res.ok) throw new Error(`${res.status}`);
-        const data = await res.json();
-        if (Array.isArray(data)) {
-          const map = new Map<string, Omit<CollabSong, 'ratings'>>();
-          for (const s of data) map.set(s.id, s);
-          setGlobalSongsMap(map);
-        }
+        const data = await fetchSongsClient();
+        const map = new Map<string, Omit<CollabSong, 'ratings'>>();
+        for (const s of data) map.set(s.id, s);
+        setGlobalSongsMap(map);
       } catch (e) {
         console.error('無法載入歌曲目錄:', e);
       } finally {
@@ -157,16 +177,7 @@ export default function CollaborationPlaylistPage() {
     }
   }
 
-  // 加權分數: 5-familiarity → 會唱=4 / 常聽=3 / 聽過=2 / 模糊=1
-  // 加總所有(有評過的)使用者對該歌的權重;沒評 / 不在 1..4 範圍 = 不計分
-  function songScore(s: CollabSong): number {
-    let total = 0;
-    for (const [, fam] of Object.entries(s.ratings)) {
-      if (typeof fam !== 'number' || fam < 1 || fam > 4) continue;
-      total += 5 - fam;
-    }
-    return total;
-  }
+
 
   // 對 API 回來的聯集再做二次過濾（同欄 OR、欄位之間 AND）+ 排序
   const filteredSongs = useMemo(() => {
@@ -184,19 +195,13 @@ export default function CollaborationPlaylistPage() {
     });
     let finalSongs = filtered;
     if (sortByScore) {
-      // Array.sort 自 ES2019 stable,同分維持原順序
-      finalSongs = [...filtered].sort((a, b) => songScore(b) - songScore(a));
+      // Using Schwartzian transform to avoid O(N log N) recalculations of songScore
+      const mapped = filtered.map((song) => ({ song, score: songScore(song) }));
+      mapped.sort((a, b) => b.score - a.score);
+      finalSongs = mapped.map((item) => item.song);
     }
 
     if (prioritizeAllHeard) {
-      const isHeardByAll = (song: CollabSong, users: string[]): boolean => {
-        if (users.length === 0) return false;
-        return users.every((user) => {
-          const rating = song.ratings[user];
-          return rating !== undefined && rating !== null && rating >= 1 && rating <= 3;
-        });
-      };
-
       const groupA: CollabSong[] = [];
       const groupB: CollabSong[] = [];
       for (const song of finalSongs) {
@@ -264,9 +269,13 @@ export default function CollaborationPlaylistPage() {
 
     const rows = filteredSongs.map((song) => {
       const brandName = getBrandDisplayName(song.brand) || song.brand;
-      const membersText = song.members
-        .map((m) => `${m.name}${m.cvName ? `(${m.cvName})` : ''}`)
-        .join(', ');
+      const unitsText = song.units && song.units.length > 0
+        ? `[${song.units.map((u) => u.name).join(', ')}]`
+        : '';
+      const membersPart = song.members && song.members.length > 0
+        ? song.members.map((m) => `${m.name}${m.cvName ? `(${m.cvName})` : ''}`).join(', ')
+        : '';
+      const membersText = [unitsText, membersPart].filter(Boolean).join(' ');
 
       const userRatings = result.users.map((user) => {
         const rating = song.ratings[user];

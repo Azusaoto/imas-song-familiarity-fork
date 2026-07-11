@@ -18,35 +18,119 @@ export default async function UserProfilePage({ params }: PageProps) {
   // 查詢該製作人的基本資料與選取內容
   const dbUser = await prisma.user.findUnique({
     where: { username },
-    include: {
+    select: {
+      id: true,
+      username: true,
+      nickname: true,
+      themeColor: true,
+      isPublic: true,
+      shareCode: true,
       producerIdols: {
-        include: {
-          member: true,
+        select: {
+          member: {
+            select: {
+              id: true,
+              name: true,
+              cvName: true,
+              production: true,
+              imagePath: true,
+            },
+          },
         },
       },
       representativeSongs: {
-        include: {
+        select: {
           song: {
-            include: {
-              members: { include: { member: true } },
-              units: { include: { unit: true } },
+            select: {
+              id: true,
+              slug: true,
+              title: true,
+              brand: true,
+              musicType: true,
+              lyrics: true,
+              composer: true,
+              arranger: true,
+              lowestPitch: true,
+              highestPitch: true,
+              youtubeIds: true,
+              members: {
+                select: {
+                  member: {
+                    select: {
+                      id: true,
+                      name: true,
+                      cvName: true,
+                    },
+                  },
+                },
+              },
+              units: {
+                select: {
+                  unit: {
+                    select: {
+                      id: true,
+                      name: true,
+                    },
+                  },
+                },
+              },
             },
           },
         },
       },
       collabSongs: {
-        include: {
+        select: {
           song: {
-            include: {
-              members: { include: { member: true } },
-              units: { include: { unit: true } },
+            select: {
+              id: true,
+              slug: true,
+              title: true,
+              brand: true,
+              musicType: true,
+              lyrics: true,
+              composer: true,
+              arranger: true,
+              lowestPitch: true,
+              highestPitch: true,
+              youtubeIds: true,
+              members: {
+                select: {
+                  member: {
+                    select: {
+                      id: true,
+                      name: true,
+                      cvName: true,
+                    },
+                  },
+                },
+              },
+              units: {
+                select: {
+                  unit: {
+                    select: {
+                      id: true,
+                      name: true,
+                    },
+                  },
+                },
+              },
             },
           },
         },
       },
       receivedWishes: {
-        include: {
-          song: true,
+        select: {
+          id: true,
+          createdAt: true,
+          isCompleted: true,
+          song: {
+            select: {
+              id: true,
+              title: true,
+              brand: true,
+              musicType: true,
+            },
+          },
           senderUser: {
             select: {
               id: true,
@@ -74,6 +158,109 @@ export default async function UserProfilePage({ params }: PageProps) {
       nickname: session.user.nickname,
     }
     : null;
+
+  // 隱私設定（isPublic）外洩防護
+  const isOwner = currentUser?.id === dbUser.id;
+  if (!dbUser.isPublic && !isOwner) {
+    return (
+      <div
+        style={{
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          minHeight: '100vh',
+          backgroundColor: '#0f172a',
+          color: '#f8fafc',
+          fontFamily: 'Inter, system-ui, sans-serif',
+          padding: '24px',
+        }}
+      >
+        <div
+          style={{
+            maxWidth: '480px',
+            width: '100%',
+            backgroundColor: 'rgba(30, 41, 59, 0.7)',
+            backdropFilter: 'blur(12px)',
+            border: '1px solid rgba(255, 255, 255, 0.08)',
+            borderRadius: '16px',
+            padding: '40px 32px',
+            textAlign: 'center',
+            boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.3), 0 10px 10px -5px rgba(0, 0, 0, 0.2)',
+          }}
+        >
+          {/* Lock Icon */}
+          <div
+            style={{
+              width: '64px',
+              height: '64px',
+              borderRadius: '50%',
+              backgroundColor: 'rgba(239, 68, 68, 0.1)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              margin: '0 auto 24px auto',
+              color: '#ef4444',
+            }}
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              fill="none"
+              viewBox="0 0 24 24"
+              strokeWidth="2"
+              stroke="currentColor"
+              style={{ width: '32px', height: '32px' }}
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 00-2.25 2.25z"
+              />
+            </svg>
+          </div>
+
+          <h2
+            style={{
+              fontSize: '22px',
+              fontWeight: '700',
+              marginBottom: '12px',
+              color: '#f1f5f9',
+            }}
+          >
+            製作人檔案未公開
+          </h2>
+          <p
+            style={{
+              fontSize: '14px',
+              color: '#94a3b8',
+              lineHeight: '1.6',
+              marginBottom: '32px',
+            }}
+          >
+            很抱歉，製作人 <strong>{dbUser.nickname}</strong> 尚未公開其個人首頁與歌單。
+          </p>
+
+          <Link
+            href="/"
+            style={{
+              display: 'inline-block',
+              width: '100%',
+              padding: '12px 24px',
+              backgroundColor: '#92cfbb',
+              color: '#0f172a',
+              fontWeight: '600',
+              fontSize: '14px',
+              borderRadius: '8px',
+              textDecoration: 'none',
+              textAlign: 'center',
+            }}
+          >
+            返回首頁
+          </Link>
+        </div>
+      </div>
+    );
+  }
 
   // 扁平化關聯欄位以傳給 Client Component
   const initialProducerIdols = dbUser.producerIdols.map((pi) => ({
@@ -145,85 +332,6 @@ export default async function UserProfilePage({ params }: PageProps) {
     },
   }));
 
-  // 查詢公開歌單數據
-  const selections = await prisma.userSelection.findMany({
-    where: {
-      userId: dbUser.id,
-      familiarity: { in: [1, 2, 3, 4] },
-    },
-    include: {
-      song: {
-        include: {
-          members: { include: { member: true } },
-          units: {
-            include: {
-              unit: { include: { _count: { select: { members: true } } } },
-            },
-          },
-        },
-      },
-    },
-    orderBy: { familiarity: 'asc' },
-  });
-
-  const playlistSongs = selections.map((sel) => ({
-    id: sel.song.id,
-    title: sel.song.title,
-    brand: sel.song.brand,
-    musicType: sel.song.musicType,
-    lyrics: sel.song.lyrics,
-    composer: sel.song.composer,
-    arranger: sel.song.arranger,
-    lowestPitch: sel.song.lowestPitch,
-    highestPitch: sel.song.highestPitch,
-    youtubeIds: sel.song.youtubeIds,
-    members: sel.song.members.map((m) => ({
-      id: m.member.id,
-      name: m.member.name,
-      cvName: m.member.cvName,
-    })),
-    units: sel.song.units.map((su) => ({
-      id: su.unit.id,
-      name: su.unit.name,
-    })),
-    familiarity: sel.familiarity,
-  }));
-
-  const idolMap = new Map();
-  const unitMap = new Map();
-  for (const sel of selections) {
-    for (const m of sel.song.members) {
-      if (!m.member.production) continue;
-      if (!idolMap.has(m.member.id)) {
-        idolMap.set(m.member.id, {
-          id: m.member.id,
-          name: m.member.name,
-          kana: m.member.kana,
-          cvName: m.member.cvName,
-          production: m.member.production,
-        });
-      }
-    }
-    for (const su of sel.song.units) {
-      if (!unitMap.has(su.unit.id)) {
-        unitMap.set(su.unit.id, {
-          id: su.unit.id,
-          name: su.unit.name,
-          kana: su.unit.kana,
-          production: su.unit.production,
-          memberCount: su.unit._count.members,
-        });
-      }
-    }
-  }
-
-  const playlistIdols = Array.from(idolMap.values()).sort((a, b) =>
-    (a.kana ?? a.name).localeCompare(b.kana ?? b.name, 'ja')
-  );
-  const playlistUnits = Array.from(unitMap.values()).sort((a, b) =>
-    (a.kana ?? a.name).localeCompare(b.kana ?? b.name, 'ja')
-  );
-
   return (
     <div
       style={{
@@ -247,9 +355,6 @@ export default async function UserProfilePage({ params }: PageProps) {
         initialRepresentativeSongs={initialRepresentativeSongs}
         initialCollabSongs={initialCollabSongs}
         initialWishes={initialWishes}
-        playlistSongs={playlistSongs}
-        playlistIdols={playlistIdols}
-        playlistUnits={playlistUnits}
       />
     </div>
   );

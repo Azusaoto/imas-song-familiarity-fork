@@ -11,24 +11,28 @@ vi.mock('next-auth/react', () => ({
 }));
 
 // Mock YoutubePlayer
-vi.mock('../components/guess/YoutubePlayer', () => ({
-    default: ({ onReady }: any) => {
+vi.mock('../components/guess/YoutubePlayer', () => {
+    const MockYoutubePlayer = ({ onReady }: { onReady: (event: { target: { playVideo: () => void } }) => void }) => {
         // Simulate player ready
         React.useEffect(() => {
             if (onReady) onReady({ target: { playVideo: vi.fn() } });
         }, [onReady]);
         return <div data-testid='youtube-player' />;
-    },
-}));
+    };
+    return {
+        default: MockYoutubePlayer,
+    };
+});
 
 const mockSongs = [
     { id: '1', title: 'Song 1', brand: 'music_as', youtubeIds: 'vid1', members: [], units: [] },
-    { id: '2', title: 'Song 2', brand: 'music_as', youtubeIds: null, members: [], units: [] },
-    { id: '3', title: 'Song 3', brand: 'music_as', youtubeIds: null, members: [], units: [] },
-    { id: '4', title: 'Song 4', brand: 'music_as', youtubeIds: null, members: [], units: [] },
+    { id: '2', title: 'Song 2', brand: 'music_as', youtubeIds: 'vid2', members: [], units: [] },
+    { id: '3', title: 'Song 3', brand: 'music_as', youtubeIds: 'vid3', members: [], units: [] },
+    { id: '4', title: 'Song 4', brand: 'music_as', youtubeIds: 'vid4', members: [], units: [] },
 ];
 
 beforeEach(() => {
+    vi.spyOn(Math, 'random').mockReturnValue(0);
     global.fetch = vi.fn().mockImplementation(() =>
         Promise.resolve({
             ok: true,

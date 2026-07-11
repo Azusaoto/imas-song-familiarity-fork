@@ -4,6 +4,7 @@ import React, { useEffect, useState, useMemo } from 'react';
 import { BrandIcon } from '@/components/BrandIcon';
 import { getBrandColor, getBrandShortName } from '@/lib/themeUtils';
 import { BRAND_VALUES } from '@/lib/brandMap';
+import { fetchSongsClient } from '@/lib/songClientCache';
 
 interface Props {
   open: boolean;
@@ -40,10 +41,9 @@ export default function SongPickerModal({
 
   useEffect(() => {
     let active = true;
-    fetch('/api/songs?schema=v2')
-      .then((res) => res.json())
+    fetchSongsClient()
       .then((data) => {
-        if (active && Array.isArray(data)) {
+        if (active) {
           setAllSongs(data);
         }
       })

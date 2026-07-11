@@ -4,6 +4,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { useSession, signIn } from 'next-auth/react';
 import { buildThemeVars, getAccentTextColor, getBrandColor, getBrandShortName } from '@/lib/themeUtils';
 import SongDetailModal from '@/components/SongDetailModal';
+import { fetchSongsClient } from '@/lib/songClientCache';
 
 // 60 到 1 的完整音域對照表
 const pitchHierarchy = [
@@ -727,16 +728,15 @@ export default function PitchAdjustmentPage() {
     async function loadFamiliarSongs() {
       try {
         setLoadingSongs(true);
-        const [songsRes, selectionsRes] = await Promise.all([
-          fetch('/api/songs?schema=v2', { cache: 'no-cache' }),
+        const [songsData, selectionsRes] = await Promise.all([
+          fetchSongsClient(),
           fetch('/api/selections', { cache: 'no-cache' })
         ]);
 
-        if (!songsRes.ok || !selectionsRes.ok) {
-          throw new Error('無法載入歌曲或選擇資料。');
+        if (!selectionsRes.ok) {
+          throw new Error('無法載入選擇資料。');
         }
 
-        const songsData = await songsRes.json();
         const selectionsData = await selectionsRes.json();
 
         if (Array.isArray(songsData)) {
