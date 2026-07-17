@@ -3,6 +3,7 @@ import { getServerSession } from 'next-auth';
 import { z } from 'zod';
 import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
+import { AppError, handleError } from '@/lib/errors';
 
 // Fail-fast schema: 進 Prisma 前擋掉畸形 payload,避免無謂消耗 pool
 const UuidArray = (max: number, label: string) =>
@@ -23,7 +24,7 @@ export async function POST(request: Request) {
   try {
     const session = await getServerSession(authOptions);
     if (!session || !session.user?.id) {
-      return NextResponse.json({ error: '未授權的存取。' }, { status: 401 });
+      throw new AppError('未授權的存取。', 401, 'UNAUTHORIZED');
     }
 
     const userId = session.user.id;
@@ -32,22 +33,22 @@ export async function POST(request: Request) {
     try {
       raw = await request.json();
     } catch {
-      return NextResponse.json({ error: '請求內容不是合法的 JSON。' }, { status: 400 });
+      throw new AppError('請求內容不是合法的 JSON。', 400, 'INVALID_JSON');
     }
 
     const parsed = ProfileUpdateSchema.safeParse(raw);
     if (!parsed.success) {
       const first = parsed.error.issues[0];
-      return NextResponse.json(
-        {
-          error: first?.message || '請求格式不正確。',
-          details: parsed.error.issues.map((i) => ({ path: i.path, message: i.message })),
-        },
-        { status: 400 }
-      );
+      const details = parsed.error.issues.map((i) => ({ path: i.path, message: i.message }));
+      throw new AppError(first?.message || '請求格式不正確。', 400, 'VALIDATION_ERROR', details);
     }
 
     const { producerIdolIds, representativeSongIds, collabSongIds } = parsed.data;
+
+    // 強制進行陣列去重，確保萬無一失
+    const uniqueProducerIdolIds = Array.from(new Set(producerIdolIds));
+    const uniqueRepresentativeSongIds = Array.from(new Set(representativeSongIds));
+    const uniqueCollabSongIds = Array.from(new Set(collabSongIds));
 
     // 使用 Transaction 確保原子性
     await prisma.$transaction([
@@ -56,31 +57,30 @@ export async function POST(request: Request) {
       prisma.userCollabSong.deleteMany({ where: { userId } }),
 
       prisma.userProducerIdol.createMany({
-        data: producerIdolIds.map((memberId) => ({
+        data: uniqueProducerIdolIds.map((memberId) => ({
           userId,
           memberId,
         })),
+        skipDuplicates: true,
       }),
       prisma.userRepresentativeSong.createMany({
-        data: representativeSongIds.map((songId) => ({
+        data: uniqueRepresentativeSongIds.map((songId) => ({
           userId,
           songId,
         })),
+        skipDuplicates: true,
       }),
       prisma.userCollabSong.createMany({
-        data: collabSongIds.map((songId) => ({
+        data: uniqueCollabSongIds.map((songId) => ({
           userId,
           songId,
         })),
+        skipDuplicates: true,
       }),
     ]);
 
     return NextResponse.json({ success: true });
   } catch (error: unknown) {
-    const err = error as Error;
-    return NextResponse.json(
-      { error: '更新個人檔案設定失敗。', details: err.message },
-      { status: 500 }
-    );
+    return handleError(error);
   }
 }

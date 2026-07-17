@@ -15,6 +15,7 @@ import { useBrandFilter } from '@/lib/useBrandFilter';
 import { filterSongs } from '@/lib/filterSongs';
 import BackToTop from '@/components/BackToTop';
 import SongDetailModal from '@/components/SongDetailModal';
+import { fetchSongsClient } from '@/lib/songClientCache';
 
 interface Song {
   id: string;
@@ -118,7 +119,7 @@ const pitchHierarchy = [
 export default function SongFamiliarityHub() {
   const { data: session, status, update } = useSession();
   const [songs, setSongs] = useState<Song[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [sortBy, setSortBy] = useState<'title' | 'release_asc' | 'release_desc'>('title');
 
   // 篩選與搜尋狀態 — 全部支援多選 + OR 語意；預設皆空（=顯示全部）
@@ -185,28 +186,44 @@ export default function SongFamiliarityHub() {
   const [authError, setAuthError] = useState('');
   const [authMessage, setAuthMessage] = useState('');
 
-  // 1. 載入歌曲清單與初始化選取狀態
+  const anyFilterActive =
+    searchQuery.trim() !== '' ||
+    selectedBrands.length > 0 ||
+    selectedTypes.length > 0 ||
+    selectedIdols.length > 0 ||
+    selectedUnits.length > 0 ||
+    selectedFamiliarities.length > 0 ||
+    showRated;
+
+  // 1. 背景預載歌曲庫 (Prefetch)
   useEffect(() => {
-    async function loadSongs() {
-      try {
-        // 加 schema 版本當 cache-bust，避免瀏覽器拿到舊版（沒 units / 沒 member.id）的快取
-        const res = await fetch('/api/songs?schema=v2', { cache: 'no-cache' });
-        if (!res.ok) throw new Error(`${res.status}`);
-        const data = await res.json();
-        if (Array.isArray(data)) {
+    const t = setTimeout(() => {
+      fetchSongsClient()
+        .then((data) => {
           setSongs(data);
-        } else {
-          throw new Error('回應格式錯誤');
-        }
-      } catch (e) {
-        console.error('無法載入歌曲:', e);
-        setLoadError('歌曲資料載入失敗，請重新整理。');
-      } finally {
-        setLoading(false);
-      }
-    }
-    loadSongs();
+        })
+        .catch((e) => console.error('背景預載歌曲庫失敗:', e));
+    }, 200);
+    return () => clearTimeout(t);
   }, []);
+
+  // 1b. 當使用者啟動篩選且歌曲尚未載入完成時，觸發延遲載入 (Lazy Load)
+  useEffect(() => {
+    if (anyFilterActive && songs.length === 0) {
+      setLoading(true);
+      fetchSongsClient()
+        .then((data) => {
+          setSongs(data);
+        })
+        .catch((e) => {
+          console.error('延遲載入歌曲庫失敗:', e);
+          setLoadError('歌曲資料載入失敗，請重新整理。');
+        })
+        .finally(() => {
+          setLoading(false);
+        });
+    }
+  }, [anyFilterActive, songs.length]);
 
   // 1b. 載入偶像 + 組合列表（給下拉選單用，受品牌篩選）
   // 失敗的話除了 console.error 還要把錯誤訊息存進 loadError 給 UI 顯示，
@@ -532,14 +549,7 @@ export default function SongFamiliarityHub() {
     setShowRated(false);
   }
 
-  const anyFilterActive =
-    searchQuery.trim() !== '' ||
-    selectedBrands.length > 0 ||
-    selectedTypes.length > 0 ||
-    selectedIdols.length > 0 ||
-    selectedUnits.length > 0 ||
-    selectedFamiliarities.length > 0 ||
-    showRated; // 勾「顯示已填」也算啟用篩選(預設為 false)
+
 
   // 動態設定主題色（含所有衍生色）
   const currentThemeColor = session?.user?.themeColor || '#92cfbb';

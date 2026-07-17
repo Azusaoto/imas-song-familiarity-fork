@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import PlaylistList, { PlaylistSong, PlaylistIdol, PlaylistUnit } from '@/app/playlist/[shareCode]/PlaylistList';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
@@ -10,6 +10,7 @@ import { getBrandColor } from '@/lib/themeUtils';
 import IdolPickerModalForProfile from './IdolPickerModalForProfile';
 import SongPickerModal from './SongPickerModal';
 import SongDetailModal from '@/components/SongDetailModal';
+import { fetchSongsClient } from '@/lib/songClientCache';
 
 interface Idol {
   id: string;
@@ -69,9 +70,6 @@ interface Props {
   initialRepresentativeSongs: Song[];
   initialCollabSongs: Song[];
   initialWishes: Wish[];
-  playlistSongs: PlaylistSong[];
-  playlistIdols: PlaylistIdol[];
-  playlistUnits: PlaylistUnit[];
 }
 
 export default function UserProfileClient({
@@ -81,12 +79,49 @@ export default function UserProfileClient({
   initialRepresentativeSongs,
   initialCollabSongs,
   initialWishes,
-  playlistSongs,
-  playlistIdols,
-  playlistUnits,
 }: Props) {
   const router = useRouter();
   const isOwner = currentUser?.id === profileUser.id;
+
+  // 公開歌單狀態 (進入頁面後非同步載入)
+  const [playlistSongs, setPlaylistSongs] = useState<PlaylistSong[]>([]);
+  const [playlistIdols, setPlaylistIdols] = useState<PlaylistIdol[]>([]);
+  const [playlistUnits, setPlaylistUnits] = useState<PlaylistUnit[]>([]);
+  const [loadingPlaylist, setLoadingPlaylist] = useState(true);
+  const [playlistError, setPlaylistError] = useState('');
+
+  useEffect(() => {
+    if (!profileUser.id) return;
+
+    // 如果不是本人且未公開，就不用 fetch 了
+    if (!isOwner && !profileUser.isPublic) {
+      setLoadingPlaylist(false);
+      return;
+    }
+
+    setLoadingPlaylist(true);
+    setPlaylistError('');
+
+    fetch(`/api/user/playlist?userId=${profileUser.id}`)
+      .then((res) => {
+        if (!res.ok) {
+          throw new Error('載入公開歌單失敗');
+        }
+        return res.json();
+      })
+      .then((data) => {
+        setPlaylistSongs(data.playlistSongs || []);
+        setPlaylistIdols(data.playlistIdols || []);
+        setPlaylistUnits(data.playlistUnits || []);
+      })
+      .catch((err: any) => {
+        console.error(err);
+        setPlaylistError(err.message || '載入公開歌單時發生錯誤。');
+      })
+      .finally(() => {
+        setLoadingPlaylist(false);
+      });
+  }, [profileUser.id, profileUser.isPublic, isOwner]);
 
   // 彈窗狀態
   const [showIdolModal, setShowIdolModal] = useState(false);
@@ -181,6 +216,27 @@ export default function UserProfileClient({
 
   const [draggedItem, setDraggedItem] = useState<{ index: number; type: 'idol' | 'repSong' | 'collabSong' } | null>(null);
 
+  // 載入完整的偶像與歌曲庫以便進行本機解析
+  const [allIdols, setAllIdols] = useState<Idol[]>([]);
+  const [allSongs, setAllSongs] = useState<Song[]>([]);
+
+  useEffect(() => {
+    if (isOwner) {
+      fetch('/api/idols')
+        .then((res) => res.json())
+        .then((data) => {
+          if (Array.isArray(data)) setAllIdols(data);
+        })
+        .catch((err) => console.error('無法載入偶像列表:', err));
+
+      fetchSongsClient()
+        .then((data) => {
+          if (Array.isArray(data)) setAllSongs(data);
+        })
+        .catch((err) => console.error('無法載入歌曲庫:', err));
+    }
+  }, [isOwner]);
+
   useEffect(() => {
     setProducerIdols(initialProducerIdols);
   }, [initialProducerIdols]);
@@ -192,6 +248,31 @@ export default function UserProfileClient({
   useEffect(() => {
     setCollabSongs(initialCollabSongs);
   }, [initialCollabSongs]);
+
+  const hasUnsavedChanges = useMemo(() => {
+    const idolsDiff = producerIdols.map(i => i.id).join(',') !== initialProducerIdols.map(i => i.id).join(',');
+    const repSongsDiff = representativeSongs.map(s => s.id).join(',') !== initialRepresentativeSongs.map(s => s.id).join(',');
+    const collabSongsDiff = collabSongs.map(s => s.id).join(',') !== initialCollabSongs.map(s => s.id).join(',');
+    return idolsDiff || repSongsDiff || collabSongsDiff;
+  }, [
+    producerIdols, initialProducerIdols,
+    representativeSongs, initialRepresentativeSongs,
+    collabSongs, initialCollabSongs
+  ]);
+
+  const handleCancelChanges = () => {
+    setProducerIdols(initialProducerIdols);
+    setRepresentativeSongs(initialRepresentativeSongs);
+    setCollabSongs(initialCollabSongs);
+  };
+
+  const handleSaveProfileClick = () => {
+    handleSaveProfile(
+      producerIdols.map(i => i.id),
+      representativeSongs.map(s => s.id),
+      collabSongs.map(s => s.id)
+    );
+  };
 
   const handleDragStart = (e: React.DragEvent, index: number, type: 'idol' | 'repSong' | 'collabSong') => {
     if (!isOwner) return;
@@ -223,31 +304,8 @@ export default function UserProfileClient({
     setDraggedItem({ index, type });
   };
 
-  const handleDragEnd = async () => {
-    if (!draggedItem) return;
-    const { type } = draggedItem;
+  const handleDragEnd = () => {
     setDraggedItem(null);
-
-    // 儲存重排後的順序
-    if (type === 'idol') {
-      await handleSaveProfile(
-        producerIdols.map((i) => i.id),
-        representativeSongs.map((s) => s.id),
-        collabSongs.map((s) => s.id)
-      );
-    } else if (type === 'repSong') {
-      await handleSaveProfile(
-        producerIdols.map((i) => i.id),
-        representativeSongs.map((s) => s.id),
-        collabSongs.map((s) => s.id)
-      );
-    } else if (type === 'collabSong') {
-      await handleSaveProfile(
-        producerIdols.map((i) => i.id),
-        representativeSongs.map((s) => s.id),
-        collabSongs.map((s) => s.id)
-      );
-    }
   };
 
   // 儲存設定 (POST 到 API)
@@ -256,15 +314,19 @@ export default function UserProfileClient({
     representativeSongIds: string[],
     collabSongIds: string[]
   ) {
+    const uniqueProducerIdolIds = Array.from(new Set(producerIdolIds));
+    const uniqueRepresentativeSongIds = Array.from(new Set(representativeSongIds));
+    const uniqueCollabSongIds = Array.from(new Set(collabSongIds));
+
     setSaving(true);
     try {
       const res = await fetch('/api/user/profile', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          producerIdolIds,
-          representativeSongIds,
-          collabSongIds,
+          producerIdolIds: uniqueProducerIdolIds,
+          representativeSongIds: uniqueRepresentativeSongIds,
+          collabSongIds: uniqueCollabSongIds,
         }),
       });
 
@@ -384,6 +446,87 @@ export default function UserProfileClient({
 
       <main className="container" style={{ flex: 1, paddingTop: '32px', paddingBottom: '60px', width: '100%' }}>
         <style>{`
+        .unsaved-changes-banner {
+          position: fixed;
+          bottom: 24px;
+          left: 50%;
+          transform: translateX(-50%);
+          background: rgba(30, 41, 59, 0.85);
+          backdrop-filter: blur(12px);
+          border: 1px solid rgba(255, 255, 255, 0.1);
+          padding: 14px 24px;
+          border-radius: 16px;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 24px;
+          z-index: 1000;
+          box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.4), 0 8px 10px -6px rgba(0, 0, 0, 0.4);
+          width: calc(100% - 48px);
+          max-width: 600px;
+          animation: slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+        @keyframes slideUp {
+          from {
+            transform: translate(-50%, 40px);
+            opacity: 0;
+          }
+          to {
+            transform: translate(-50%, 0);
+            opacity: 1;
+          }
+        }
+        .banner-text {
+          color: #f8fafc;
+          font-size: 14px;
+          font-weight: 500;
+        }
+        .banner-actions {
+          display: flex;
+          gap: 12px;
+        }
+        .saving-overlay {
+          position: fixed;
+          top: 0;
+          left: 0;
+          right: 0;
+          bottom: 0;
+          background: rgba(15, 23, 42, 0.7);
+          backdrop-filter: blur(4px);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          z-index: 2000;
+          animation: fadeIn 0.2s ease-out;
+        }
+        .saving-spinner-container {
+          background: var(--bg-surface);
+          border: 1px solid var(--border-color);
+          padding: 24px 36px;
+          border-radius: 16px;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          gap: 16px;
+          box-shadow: var(--shadow-lg);
+          color: var(--text-primary);
+          font-weight: 500;
+        }
+        .saving-spinner {
+          width: 40px;
+          height: 40px;
+          border: 3px solid rgba(255, 255, 255, 0.1);
+          border-top-color: ${themeColor};
+          border-radius: 50%;
+          animation: spin 0.8s linear infinite;
+        }
+        @keyframes spin {
+          to { transform: rotate(360deg); }
+        }
+        @keyframes fadeIn {
+          from { opacity: 0; }
+          to { opacity: 1; }
+        }
         .profile-banner {
           background-color: var(--bg-surface);
           border: 1px solid var(--border-color);
@@ -603,11 +746,7 @@ export default function UserProfileClient({
                       type="button"
                       onClick={() => {
                         if (confirm('確定要清空所有的擔當偶像設定嗎？')) {
-                          handleSaveProfile(
-                            [],
-                            representativeSongs.map((s) => s.id),
-                            collabSongs.map((s) => s.id)
-                          );
+                          setProducerIdols([]);
                         }
                       }}
                       className="btn btn-danger"
@@ -702,11 +841,7 @@ export default function UserProfileClient({
                       type="button"
                       onClick={() => {
                         if (confirm('確定要清空所有的代表曲設定嗎？')) {
-                          handleSaveProfile(
-                            producerIdols.map((i) => i.id),
-                            [],
-                            collabSongs.map((s) => s.id)
-                          );
+                          setRepresentativeSongs([]);
                         }
                       }}
                       className="btn btn-danger"
@@ -785,11 +920,7 @@ export default function UserProfileClient({
                       type="button"
                       onClick={() => {
                         if (confirm('確定要清空所有的歡迎合唱曲設定嗎？')) {
-                          handleSaveProfile(
-                            producerIdols.map((i) => i.id),
-                            representativeSongs.map((s) => s.id),
-                            []
-                          );
+                          setCollabSongs([]);
                         }
                       }}
                       className="btn btn-danger"
@@ -1001,7 +1132,7 @@ export default function UserProfileClient({
         <div className="wish-section" style={{ marginTop: '28px' }}>
           <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: '16px' }}>
             <h3 style={{ fontSize: '18px', fontWeight: '600', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '8px' }}>
-              🎶 公開歌單 ({playlistSongs.length})
+              🎶 公開歌單 {loadingPlaylist ? '' : `(${playlistSongs.length})`}
             </h3>
             {!profileUser.isPublic && isOwner && (
               <span style={{ fontSize: '11px', backgroundColor: 'var(--bg-base)', border: '1px solid var(--border-color)', color: 'var(--text-muted)', padding: '2px 6px', borderRadius: '4px' }}>
@@ -1010,7 +1141,16 @@ export default function UserProfileClient({
             )}
           </div>
 
-          {isOwner || profileUser.isPublic ? (
+          {loadingPlaylist ? (
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '48px', color: 'var(--text-muted)' }}>
+              <div className="saving-spinner" style={{ marginBottom: '12px', borderColor: 'rgba(255, 255, 255, 0.1)', borderTopColor: themeColor }}></div>
+              <span style={{ fontSize: '14px' }}>正在載入公開歌單...</span>
+            </div>
+          ) : playlistError ? (
+            <div style={{ textAlign: 'center', padding: '48px', color: '#ef4444', fontSize: '14px' }}>
+              ⚠️ {playlistError}
+            </div>
+          ) : isOwner || profileUser.isPublic ? (
             <PlaylistList songs={playlistSongs} idols={playlistIdols} units={playlistUnits} />
           ) : (
             <div style={{ textAlign: 'center', padding: '48px', color: 'var(--text-muted)', fontSize: '14px' }}>
@@ -1024,14 +1164,12 @@ export default function UserProfileClient({
           <IdolPickerModalForProfile
             open={showIdolModal}
             onClose={() => setShowIdolModal(false)}
-            initialIdolIds={initialProducerIdols.map((i) => i.id)}
-            onConfirm={(ids) =>
-              handleSaveProfile(
-                ids,
-                initialRepresentativeSongs.map((s) => s.id),
-                initialCollabSongs.map((s) => s.id)
-              )
-            }
+            initialIdolIds={producerIdols.map((i) => i.id)}
+            onConfirm={(ids) => {
+              const resolved = ids.map(id => allIdols.find(i => i.id === id)).filter(Boolean) as Idol[];
+              setProducerIdols(resolved);
+              setShowIdolModal(false);
+            }}
             maxSelections={50}
           />
         )}
@@ -1042,14 +1180,12 @@ export default function UserProfileClient({
             open={showRepSongsModal}
             onClose={() => setShowRepSongsModal(false)}
             title="選擇代表曲 (最多 5 首)"
-            initialSongIds={initialRepresentativeSongs.map((s) => s.id)}
-            onConfirm={(ids) =>
-              handleSaveProfile(
-                initialProducerIdols.map((i) => i.id),
-                ids,
-                initialCollabSongs.map((s) => s.id)
-              )
-            }
+            initialSongIds={representativeSongs.map((s) => s.id)}
+            onConfirm={(ids) => {
+              const resolved = ids.map(id => allSongs.find(s => s.id === id)).filter(Boolean) as Song[];
+              setRepresentativeSongs(resolved);
+              setShowRepSongsModal(false);
+            }}
             maxSelections={5}
           />
         )}
@@ -1060,14 +1196,12 @@ export default function UserProfileClient({
             open={showCollabSongsModal}
             onClose={() => setShowCollabSongsModal(false)}
             title="選擇歡迎合唱曲 (最多 50 首)"
-            initialSongIds={initialCollabSongs.map((s) => s.id)}
-            onConfirm={(ids) =>
-              handleSaveProfile(
-                initialProducerIdols.map((i) => i.id),
-                initialRepresentativeSongs.map((s) => s.id),
-                ids
-              )
-            }
+            initialSongIds={collabSongs.map((s) => s.id)}
+            onConfirm={(ids) => {
+              const resolved = ids.map(id => allSongs.find(s => s.id === id)).filter(Boolean) as Song[];
+              setCollabSongs(resolved);
+              setShowCollabSongsModal(false);
+            }}
             maxSelections={50}
           />
         )}
@@ -1230,6 +1364,31 @@ export default function UserProfileClient({
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Unsaved Changes Banner */}
+      {isOwner && hasUnsavedChanges && (
+        <div className="unsaved-changes-banner">
+          <span className="banner-text">⚠️ 您有未儲存的製作人檔案變更</span>
+          <div className="banner-actions">
+            <button className="btn btn-secondary" onClick={handleCancelChanges} disabled={saving} style={{ padding: '6px 12px', fontSize: '13px' }}>
+              取消變更
+            </button>
+            <button className="btn btn-primary" onClick={handleSaveProfileClick} disabled={saving} style={{ padding: '6px 12px', fontSize: '13px', backgroundColor: themeColor, borderColor: themeColor, color: '#0f172a', fontWeight: 'bold' }}>
+              儲存變更
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Saving Loading Overlay */}
+      {saving && (
+        <div className="saving-overlay">
+          <div className="saving-spinner-container">
+            <div className="saving-spinner"></div>
+            <span>正在儲存變更，請稍候...</span>
           </div>
         </div>
       )}
