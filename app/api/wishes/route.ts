@@ -26,11 +26,13 @@ export async function POST(request: Request) {
     }
 
     // 驗證留言格式與長度
+    let finalComment: string | null = null;
     if (comment !== undefined && comment !== null) {
       if (typeof comment !== 'string') {
         throw new AppError('留言格式不正確。', 400, 'BAD_REQUEST');
       }
-      if (comment.length > 200) {
+      finalComment = comment.trim() || null;
+      if (finalComment && finalComment.length > 200) {
         throw new AppError('留言長度不能超過 200 個字。', 400, 'BAD_REQUEST');
       }
     }
@@ -89,7 +91,7 @@ export async function POST(request: Request) {
         targetUserId,
         senderUserId: session.user.id,
         songId,
-        comment: comment || null,
+        comment: finalComment,
       },
     });
 
